@@ -289,6 +289,108 @@ Tracks configuration changes to AWS resources over time. Records who changed wha
 | **Conformance Packs** | Collection of Config rules for a compliance framework |
 | **Aggregator** | Multi-account, multi-region view |
 
+### CloudWatch Advanced Features
+
+#### CloudWatch Log Insights
+
+A purpose-built query language for searching and analyzing CloudWatch Logs at scale.
+
+```
+# Find the 25 most expensive Lambda invocations
+fields @timestamp, @duration, @billedDuration, @memorySize, @maxMemoryUsed
+| filter @type = "REPORT"
+| sort @billedDuration desc
+| limit 25
+
+# Count errors by status code in ALB access logs
+fields @timestamp, elb_status_code
+| filter elb_status_code >= 400
+| stats count(*) as errorCount by elb_status_code
+| sort errorCount desc
+```
+
+| Feature | Detail |
+|---------|--------|
+| **Query Language** | `fields`, `filter`, `stats`, `sort`, `limit`, `parse`, `display` |
+| **Cross-Log-Group** | Query up to 50 log groups simultaneously |
+| **Dashboard Integration** | Pin query results directly to CloudWatch Dashboards |
+
+#### CloudWatch Synthetics (Canary Scripts)
+
+| Feature | Detail |
+|---------|--------|
+| **Purpose** | Proactively monitor endpoints by simulating user behavior on a schedule |
+| **Blueprints** | Heartbeat (URL check), API Canary, Broken Link Checker, Visual Monitoring, GUI Workflow |
+| **Visual Monitoring** | Compares screenshots against a baseline to detect UI regressions |
+| **Metrics** | SuccessPercent and Duration published to CloudWatch |
+| **Schedule** | Run every 1-60 minutes |
+| **VPC Support** | Canaries can run inside a VPC to monitor private endpoints |
+
+#### Composite Alarms & Anomaly Detection
+
+**Composite Alarms** combine multiple alarm states using boolean logic:
+
+```
+# Only page on-call when BOTH conditions are true
+ALARM("High-5XX-Rate") AND ALARM("High-Latency-P99")
+
+# Suppress alarms during deployments
+ALARM("Error-Rate") AND NOT ALARM("Deployment-In-Progress")
+```
+
+**Metric Math** creates new metrics from existing ones:
+
+```
+# Error rate as percentage
+METRICS("5xxCount") / METRICS("TotalRequests") * 100
+
+# Anomaly detection band
+ANOMALY_DETECTION_BAND(METRICS("CPUUtilization"), 2)
+```
+
+**Anomaly Detection** uses ML to establish an expected value band based on historical patterns (time of day, day of week, trends). Alarms fire when the metric falls outside the band -- no static threshold needed.
+
+#### Cross-Account Observability
+
+| Feature | Detail |
+|---------|--------|
+| **Monitoring Account** | Central account that views metrics/logs/traces from source accounts |
+| **Setup** | OAM (Observability Access Manager) links source accounts to monitoring account |
+| **Shared Data** | CloudWatch Metrics, Logs, X-Ray traces, Application Insights |
+| **Use Case** | Central operations team monitors all workload accounts from one dashboard |
+
+### AWS Config Advanced
+
+#### Config Rules Deep Dive
+
+| Rule Type | Description | Example |
+|-----------|-------------|---------|
+| **AWS Managed** | Pre-built rules (250+ available) | `s3-bucket-server-side-encryption-enabled`, `restricted-ssh` |
+| **Custom (Lambda)** | Your Lambda evaluates compliance | "All EC2 instances must have CostCenter tag" |
+| **Custom (Guard)** | CloudFormation Guard policy language | Declarative rules without Lambda overhead |
+| **Proactive** | Evaluate resources BEFORE creation (CFN hooks) | Block non-compliant CloudFormation deployments |
+
+#### Conformance Packs
+
+Pre-packaged collections of Config rules + remediation actions mapped to compliance frameworks:
+
+| Pack | Rules Included | Use Case |
+|------|---------------|----------|
+| **CIS AWS Foundations Benchmark** | ~45 rules | General security baseline |
+| **PCI-DSS** | ~30 rules | Payment card compliance |
+| **HIPAA** | ~50 rules | Healthcare data compliance |
+| **NIST 800-53** | ~90 rules | Federal government compliance |
+| **Custom** | Your rules | Organization-specific policies |
+
+#### Config Aggregator (Multi-Account/Multi-Region)
+
+| Feature | Detail |
+|---------|--------|
+| **Purpose** | Centralized compliance view across all accounts and regions |
+| **Setup** | Create aggregator in central account, authorize source accounts (or use Organizations) |
+| **Advanced Queries** | SQL-like queries across aggregated data (`SELECT ... WHERE ...`) |
+| **Dashboard** | Compliance percentage per account, per region, per rule |
+
 ### Terraform vs CloudFormation vs CDK
 
 | Feature | CloudFormation | CDK | Terraform |
@@ -696,6 +798,14 @@ A secure deployment pipeline implements checks at every stage to prevent vulnera
 | cfn-init | Declarative EC2 config (packages, files, services), idempotent unlike User Data, cfn-signal + CreationPolicy for success confirmation, cfn-hup for update detection |
 | Custom Resources | Lambda-backed (or SNS-backed), extend CFN beyond native resources, must respond SUCCESS/FAILED to pre-signed S3 URL, cfn-response module, use for AMI lookup/cleanup/external APIs |
 | Stack Sets | Deploy stacks across multiple accounts + regions, Organizations integration for auto-deploy to new accounts, concurrent deployment, failure tolerance settings |
+| CloudWatch Log Insights | Query language: fields, filter, stats, parse, sort, limit. Cross-log-group queries (up to 50) |
+| CloudWatch Synthetics | Canary scripts (Node.js/Python) on schedule. Blueprints: heartbeat, API, visual, GUI workflow |
+| Composite Alarms | AND/OR/NOT logic. Reduce alert fatigue. Suppress child alarm actions |
+| Anomaly Detection | ML model, configurable band width, no static thresholds needed |
+| Cross-Account Observability | OAM links source accounts to monitoring account. Share metrics, logs, traces |
+| Config Rules (advanced) | Managed (250+), Custom Lambda, Custom Guard, Proactive (pre-creation via CFN hooks) |
+| Conformance Packs | Bundled Config rules for compliance frameworks (CIS, PCI, HIPAA, NIST) |
+| Config Aggregator | Multi-account/multi-region compliance view. SQL-like advanced queries |
 
 ---
 

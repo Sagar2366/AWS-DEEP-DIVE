@@ -75,6 +75,127 @@ graph TB
 
 ## Deep Dive
 
+### ML Fundamentals
+
+#### Learning Paradigms
+
+| Paradigm | Data Needed | How It Learns | AWS Service | Example Use Case |
+|----------|-------------|--------------|-------------|-----------------|
+| **Supervised** | Labeled (input + correct output) | Maps inputs to known outputs | SageMaker (XGBoost, Linear Learner) | Fraud detection, spam classification |
+| **Unsupervised** | Unlabeled (input only) | Finds hidden patterns/structure | SageMaker (K-Means, PCA) | Customer segmentation, anomaly detection |
+| **Semi-Supervised** | Small labeled + large unlabeled | Leverages both labeled and unlabeled | SageMaker + Ground Truth | Label-scarce medical imaging |
+| **Reinforcement Learning** | Environment + reward signal | Trial and error, maximize reward | SageMaker RL | Game agents, robotics, ad bidding |
+| **Self-Supervised** | Unlabeled (creates own labels) | Predicts parts of input from other parts | Foundation models (BERT, GPT) | LLM pre-training, embeddings |
+
+#### Classification vs Regression
+
+| Factor | Classification | Regression |
+|--------|---------------|------------|
+| **Output** | Discrete categories (spam/not spam, cat/dog) | Continuous value (price, temperature, score) |
+| **Metrics** | Accuracy, Precision, Recall, F1, AUC-ROC | MSE, RMSE, MAE, R-squared |
+| **Algorithms** | Logistic Regression, Random Forest, XGBoost | Linear Regression, XGBoost, Neural Networks |
+| **AWS Built-in** | SageMaker Linear Learner (binary), XGBoost | SageMaker Linear Learner, XGBoost |
+| **Example** | "Is this transaction fraudulent?" (yes/no) | "What will this house sell for?" ($425,000) |
+
+#### Data Splits and Model Validation
+
+```
+Total Dataset (100%)
+|
+|-- Training Set (70-80%)    --> Model learns patterns from this data
+|-- Validation Set (10-15%)  --> Tune hyperparameters, prevent overfitting during training
+|-- Test Set (10-15%)        --> Final unbiased evaluation (never seen during training or tuning)
+```
+
+**Cross-validation (k-fold)**: Split data into k folds, train on k-1 folds, validate on the remaining fold, repeat k times. Gives a more robust performance estimate, especially with small datasets. SageMaker Autopilot uses cross-validation automatically.
+
+#### Overfitting vs Underfitting
+
+| Problem | Symptom | Cause | Fix |
+|---------|---------|-------|-----|
+| **Overfitting** | High training accuracy, low test accuracy | Model memorized training data (too complex) | More data, regularization (L1/L2), dropout, early stopping, reduce model complexity |
+| **Underfitting** | Low training accuracy, low test accuracy | Model is too simple to capture patterns | More features, more complex model, train longer, reduce regularization |
+| **Good Fit** | High training accuracy, high test accuracy | Model generalizes well | This is the goal |
+
+**Feature engineering basics**: The process of selecting, transforming, and creating input variables (features) that help the model learn. Techniques include: normalization/standardization (scale features to similar ranges), one-hot encoding (convert categories to binary columns), handling missing values (impute or drop), feature selection (remove irrelevant features), and creating derived features (e.g., age from birth date). SageMaker Data Wrangler provides a visual interface for these transformations.
+
+### SageMaker Ecosystem Deep Dive
+
+| Component | Purpose | Audience | Key Detail |
+|-----------|---------|----------|------------|
+| **Canvas** | No-code ML -- drag-and-drop model building | Business analysts | Connect to data sources (S3, Redshift), auto-trains multiple models, generates predictions. No code or ML knowledge needed |
+| **Autopilot** | AutoML -- automatically selects algorithm and tunes | Data scientists (saves time) | Explores multiple algorithms (Linear Learner, XGBoost, deep learning), tunes hyperparameters, generates notebooks showing what it did |
+| **JumpStart** | Pre-trained model hub | ML engineers | 200+ models (Llama, Stable Diffusion, Hugging Face). One-click deploy or fine-tune with your data |
+| **Ground Truth** | Data labeling | Data teams | Human labelers (workforce or Mechanical Turk) + active learning (ML pre-labels, humans verify). Supports image, text, video, 3D point cloud |
+| **Data Wrangler** | Visual data prep | Data scientists | 300+ built-in transforms. Import from S3, Redshift, Athena. Export to Pipeline or Feature Store |
+| **Clarify** | Bias detection + explainability | ML engineers, compliance | Pre-training bias metrics (class imbalance), post-training bias metrics (disparate impact), SHAP values for feature importance |
+| **Feature Store** | Centralized feature repo | ML engineers | Online store (DynamoDB, <10ms) for real-time inference. Offline store (S3 Parquet) for training. Prevents training-serving skew |
+| **Model Monitor** | Production drift detection | MLOps teams | Four monitor types: data quality, model quality, bias drift, feature attribution drift. Alerts via CloudWatch |
+| **Model Registry** | Model versioning + approval gates | MLOps teams | Register models with metadata/metrics. Manual or automated approval before production deployment |
+| **Neo** | Edge model optimization | Edge/IoT teams | Compiles models for target hardware (ARM, x86, GPU). Reduces model size up to 25x, improves inference speed up to 2x |
+| **Experiments** | Track ML experiments | Data scientists | Log parameters, metrics, artifacts for each training run. Compare runs side-by-side |
+| **Processing Jobs** | Managed data processing | Data engineers | Run Spark, scikit-learn, or custom containers for preprocessing, postprocessing, and evaluation at scale |
+| **Pipelines** | CI/CD for ML | MLOps teams | DAG-based workflow: preprocessing, training, evaluation, registration, deployment. Triggered by schedule or event |
+
+### Generative AI Fundamentals
+
+#### How LLMs Work (Simplified)
+
+```mermaid
+graph LR
+    INPUT["Input Text:<br/>'The capital of France is'"]
+    TOKENIZE["Tokenizer<br/>Splits text into tokens:<br/>['The', ' capital', ' of', ' France', ' is']"]
+    EMBED["Embedding Layer<br/>Converts tokens to<br/>dense vectors"]
+    TRANSFORM["Transformer Blocks<br/>(Self-Attention +<br/>Feed-Forward)<br/>x N layers"]
+    OUTPUT["Output Layer<br/>Probability distribution<br/>over all tokens"]
+    DECODE["Decode:<br/>'Paris' (highest<br/>probability)"]
+
+    INPUT --> TOKENIZE --> EMBED --> TRANSFORM --> OUTPUT --> DECODE
+```
+
+**Key concepts**:
+- **Transformer architecture**: Uses self-attention mechanism to weigh the importance of each token relative to every other token in the sequence. This allows the model to capture long-range dependencies (unlike older RNN/LSTM models).
+- **Tokens**: The atomic unit of text processing. One token is roughly 3/4 of an English word. "ChatGPT is great" is 4 tokens. Pricing and context limits are measured in tokens.
+- **Context window**: The maximum number of tokens a model can process in a single request (input + output). Claude 3.5 Sonnet: 200K tokens. Larger windows allow more context but increase cost and latency.
+- **Parameters**: The learned weights of the model. More parameters generally mean more capability but higher inference cost. Llama 3 70B = 70 billion parameters.
+
+#### Inference Parameters
+
+| Parameter | What It Controls | Low Value | High Value | Tip |
+|-----------|-----------------|-----------|------------|-----|
+| **Temperature** | Randomness of output | Deterministic, focused (0.0) | Creative, diverse (1.0+) | Use low for factual tasks, high for creative |
+| **Top-p (nucleus)** | Cumulative probability cutoff | Only highest-prob tokens | More token variety | Alternative to temperature for controlling diversity |
+| **Top-k** | Number of top tokens to consider | Few tokens (focused) | Many tokens (diverse) | Simpler than top-p, less commonly tuned |
+| **Max tokens** | Maximum output length | Short responses | Long responses | Controls cost and response length |
+| **Stop sequences** | Tokens that halt generation | -- | -- | Prevents runaway generation |
+
+#### Embeddings and Vector Databases
+
+**Embeddings** convert text (or images, audio) into dense numerical vectors where semantically similar content has similar vectors. "Dog" and "puppy" would be close together in vector space, while "dog" and "quantum physics" would be far apart.
+
+| Vector Store on AWS | Type | Best For |
+|-------------------|------|----------|
+| **Amazon OpenSearch Serverless** | Managed, serverless | Production RAG with Bedrock Knowledge Bases (default choice) |
+| **Amazon Aurora PostgreSQL (pgvector)** | Relational + vector | When you already use Aurora and want vector search alongside SQL |
+| **Amazon Neptune Analytics** | Graph + vector | Knowledge graph + semantic search hybrid |
+| **Pinecone (3rd party)** | Managed vector DB | Supported by Bedrock Knowledge Bases, popular in industry |
+| **Redis (MemoryDB)** | In-memory + vector | Ultra-low-latency vector search |
+
+### Prompt Engineering
+
+#### Techniques
+
+| Technique | Description | Example | When to Use |
+|-----------|-------------|---------|-------------|
+| **Zero-shot** | Ask the model directly, no examples | "Classify this review as positive or negative: ..." | Simple tasks the model already understands |
+| **Few-shot** | Provide 2-5 examples before the actual task | "Review: Great product! -> Positive\nReview: Broke after a day -> Negative\nReview: {input} ->" | When the model needs to understand format or nuance |
+| **Chain-of-Thought (CoT)** | Ask the model to reason step-by-step | "Think step by step before answering..." | Math, logic, multi-step reasoning |
+| **System Prompts** | Set the model's persona and rules | "You are a helpful AWS expert. Only answer AWS questions." | Every production application -- defines behavior boundaries |
+| **Prompt Templates** | Reusable prompts with variable placeholders | "Summarize the following document in {num_sentences} sentences: {document}" | Production applications with consistent prompt structure |
+| **Prompt Caching** | Reuse cached prefix (system prompt + examples) across requests | Static system prompt at the beginning, variable user input at the end | Reduce latency and cost for repeated prompt prefixes |
+
+**Common pitfalls**: (1) Vague instructions ("make it better" vs "rewrite using formal tone with shorter sentences"). (2) Missing context (not telling the model what it does NOT know). (3) Prompt injection (user input that overrides system instructions -- mitigate with Bedrock Guardrails). (4) Overly long prompts that waste tokens on irrelevant context. (5) Not specifying output format (JSON, bullet points, table).
+
 ### Amazon Bedrock
 
 Fully managed service for building generative AI applications using foundation models.
@@ -90,6 +211,189 @@ Fully managed service for building generative AI applications using foundation m
 | **Model Evaluation** | Compare models on your task with automatic and human evaluation |
 | **Pricing** | On-Demand (per input/output token) or Provisioned Throughput |
 | **Data Privacy** | Your data is not used to train base models. Encrypted at rest and in transit |
+
+#### Guardrails Configuration
+
+| Guardrail Type | What It Does | Configuration |
+|---------------|-------------|---------------|
+| **Content Filters** | Block harmful content categories (hate, insults, sexual, violence, misconduct) | Set threshold per category: NONE, LOW, MEDIUM, HIGH for both input and output |
+| **Denied Topics** | Block specific topics entirely | Define topic with natural language description + example phrases (e.g., "Do not discuss competitor products") |
+| **Word Filters** | Block specific words or phrases | Exact match list + optional profanity filter |
+| **PII Detection** | Identify and handle PII (names, SSNs, emails, phone numbers, addresses) | Per PII type: BLOCK (reject request) or ANONYMIZE (mask with placeholder) |
+| **Contextual Grounding** | Detect hallucinations by checking response against source | Grounding threshold (0-1): reject if response is not supported by provided context |
+
+#### Provisioned Throughput vs On-Demand
+
+| Factor | On-Demand | Provisioned Throughput |
+|--------|-----------|----------------------|
+| **Pricing** | Per input/output token | Fixed hourly rate for reserved capacity (model units) |
+| **Latency** | Variable (shared capacity) | Consistent (dedicated capacity) |
+| **Best For** | Development, variable traffic, low volume | Production with predictable high volume |
+| **Commitment** | None | 1-month or 6-month term |
+| **Custom Models** | Not available | Required for fine-tuned/custom models |
+
+#### Model Evaluation on Bedrock
+
+| Evaluation Type | How It Works | Metrics | Best For |
+|----------------|-------------|---------|----------|
+| **Automatic** | Run your dataset against models, score with built-in metrics | ROUGE, BERTScore, accuracy, toxicity | Initial model selection, regression testing |
+| **Human** | Reviewers rate model outputs on custom dimensions | Helpfulness, accuracy, harmlessness (your criteria) | Final model selection, subjective quality |
+| **Model-as-Judge** | Use a powerful model (Claude) to evaluate another model's outputs | Custom rubric-based scoring | Scalable quality evaluation between auto and human |
+
+### RAG Deep Dive
+
+#### RAG Pipeline Architecture
+
+```mermaid
+graph TB
+    subgraph "Ingestion Pipeline (Offline)"
+        DOCS["Source Documents<br/>(S3: PDFs, HTML, Docs)"]
+        CHUNK["Chunking<br/>(Split into passages)"]
+        EMBED_I["Embedding Model<br/>(Titan Embeddings v2)"]
+        STORE["Vector Store<br/>(OpenSearch Serverless)"]
+        DOCS --> CHUNK --> EMBED_I --> STORE
+    end
+
+    subgraph "Query Pipeline (Online)"
+        QUERY["User Query"]
+        EMBED_Q["Embed Query<br/>(same embedding model)"]
+        SEARCH["Semantic Search<br/>(find top-K similar chunks)"]
+        RERANK["Rerank<br/>(Cohere Rerank --<br/>optional, improves relevance)"]
+        PROMPT["Construct Prompt<br/>(system + context + query)"]
+        FM["Foundation Model<br/>(Claude / Titan)"]
+        ANSWER["Grounded Answer<br/>+ Source Citations"]
+        QUERY --> EMBED_Q --> SEARCH --> RERANK --> PROMPT --> FM --> ANSWER
+        STORE -.->|"retrieve"| SEARCH
+    end
+```
+
+#### Chunking Strategies
+
+| Strategy | How It Works | Pros | Cons | Best For |
+|----------|-------------|------|------|----------|
+| **Fixed-size** | Split every N tokens (e.g., 512) with overlap | Simple, predictable | May split mid-sentence or mid-concept | General-purpose, quick setup |
+| **Semantic** | Split at natural boundaries (paragraphs, sections) | Preserves meaning | Variable chunk sizes, more complex | Structured documents with clear sections |
+| **Hierarchical** | Parent chunks (large summaries) + child chunks (details) | Rich retrieval -- summary-level and detail-level | Complex indexing, higher storage | Long technical documentation |
+| **Sentence-level** | One sentence per chunk | Maximum granularity | Loses surrounding context | FAQ-style, short-answer retrieval |
+
+**Overlap**: Always use 10-20% overlap between chunks to prevent losing context at boundaries. Bedrock Knowledge Bases defaults to 20% overlap with 300-token chunks.
+
+#### Hybrid Search (Keyword + Semantic)
+
+Pure semantic search can miss exact terms (product IDs, error codes). Pure keyword search misses synonyms. **Hybrid search** combines both:
+
+1. **Keyword search** (BM25 in OpenSearch) finds exact matches.
+2. **Semantic search** (vector similarity) finds conceptually similar content.
+3. Results are merged using Reciprocal Rank Fusion (RRF) or weighted scoring.
+
+OpenSearch Serverless supports hybrid search natively. Bedrock Knowledge Bases with OpenSearch uses this by default.
+
+### Responsible AI
+
+#### Types of Bias
+
+| Bias Type | What It Is | Example | Detection |
+|-----------|-----------|---------|-----------|
+| **Selection Bias** | Training data does not represent the real-world population | Hiring model trained mostly on male resumes undervalues female candidates | SageMaker Clarify pre-training bias metrics (Class Imbalance, DPL) |
+| **Measurement Bias** | Data collection method systematically skews results | Health model using insurance claims misses uninsured populations | Analyze data collection methodology, compare distributions |
+| **Algorithmic Bias** | Model amplifies existing biases in data | Loan model denies minority applicants at higher rates despite similar credit profiles | SageMaker Clarify post-training bias metrics (DI, DPPL, AD) |
+| **Confirmation Bias** | Model reinforces existing beliefs in feedback loops | Recommendation engine only shows content similar to what user already views | A/B testing, diversity metrics in recommendations |
+| **Automation Bias** | Humans over-trust AI decisions | Doctors accepting all AI diagnoses without verification | Human-in-the-loop workflows, confidence thresholds |
+
+#### Explainability Methods
+
+| Method | How It Works | AWS Tool |
+|--------|-------------|----------|
+| **SHAP Values** | Assigns each feature a contribution score for each prediction using game theory (Shapley values) | SageMaker Clarify |
+| **Feature Importance** | Ranks features by their overall impact on model predictions | SageMaker Clarify, built-in algorithms |
+| **Partial Dependence Plots** | Shows how changing one feature affects predictions while holding others constant | SageMaker Studio notebooks |
+| **Contextual Grounding** | For GenAI: checks if the response is supported by the provided source documents | Bedrock Guardrails |
+| **Model Cards** | Document model purpose, limitations, performance, and ethical considerations | SageMaker Model Cards |
+
+#### Privacy and Governance
+
+| Concept | What It Means | AWS Implementation |
+|---------|--------------|-------------------|
+| **Data isolation** | Your data is not used to train base models | Bedrock service terms -- customer data is never used for model training |
+| **Encryption** | Protect data at rest and in transit | KMS (at rest), TLS 1.2+ (in transit) for all AI services |
+| **PII protection** | Detect and mask personally identifiable information | Bedrock Guardrails (PII detection), Comprehend PII detection |
+| **Network isolation** | Keep AI traffic off the public internet | VPC endpoints (PrivateLink) for Bedrock and SageMaker |
+| **Differential privacy** | Add noise to data/outputs to prevent re-identification | Conceptual -- not a specific AWS service |
+| **Federated learning** | Train models across decentralized data without sharing raw data | Conceptual -- know the definition |
+
+### MLOps on AWS
+
+#### MLOps Pipeline Architecture
+
+```mermaid
+graph LR
+    subgraph "Data"
+        DATA["New Data<br/>(S3)"]
+    end
+
+    subgraph "SageMaker Pipelines"
+        PREPROCESS["Preprocessing<br/>(Processing Job)"]
+        TRAIN["Training<br/>(Training Job)"]
+        EVAL["Evaluation<br/>(Processing Job)"]
+        BIAS["Bias Check<br/>(Clarify)"]
+        REG["Register Model<br/>(Model Registry)"]
+    end
+
+    subgraph "Deployment"
+        APPROVE["Manual / Auto<br/>Approval"]
+        DEPLOY["Deploy to<br/>Endpoint"]
+    end
+
+    subgraph "Monitoring"
+        MONITOR["Model Monitor<br/>(Drift Detection)"]
+        ALARM["CloudWatch<br/>Alarm"]
+    end
+
+    DATA --> PREPROCESS --> TRAIN --> EVAL --> BIAS --> REG
+    REG --> APPROVE --> DEPLOY --> MONITOR
+    MONITOR -->|"Drift detected"| ALARM
+    ALARM -->|"EventBridge triggers<br/>retraining"| PREPROCESS
+```
+
+#### Model Deployment Strategies
+
+| Strategy | Risk Level | How It Works | Rollback Speed |
+|----------|-----------|-------------|----------------|
+| **All-at-once** | High | Replace the model entirely | Slow (must redeploy old model) |
+| **Canary** | Low | Route 10% traffic to new model, monitor, then shift 100% | Fast (shift traffic back) |
+| **Linear** | Medium | Gradually increase traffic to new model (10% every 10 min) | Medium |
+| **Blue/Green** | Low | Two full endpoints, switch traffic via DNS or routing | Instant (switch back) |
+| **Shadow** | None | New model receives copy of traffic, responses discarded | N/A (no user impact) |
+| **A/B Testing** | Low | Split traffic between models, measure business metrics | Fast |
+
+SageMaker endpoints support production variants for canary and A/B testing natively. Use deployment guardrails with automatic rollback based on CloudWatch alarms (error rate, latency).
+
+#### Automated Retraining Trigger Flow
+
+1. **Model Monitor** detects drift (data quality, model quality, or bias drift exceeds threshold).
+2. Model Monitor publishes metrics to **CloudWatch**. Alarm triggers.
+3. CloudWatch alarm sends event to **EventBridge**.
+4. EventBridge rule triggers the **SageMaker Pipeline** (retraining workflow).
+5. Pipeline retrains the model on fresh data, evaluates, runs bias checks.
+6. If evaluation passes, model is registered in **Model Registry** (pending approval).
+7. Approval (manual or automated) triggers deployment to the production endpoint using a canary strategy.
+
+### AI Services Quick Reference
+
+| Service | Category | What It Does |
+|---------|----------|-------------|
+| **Translate** | Language | Real-time text translation, 75+ languages, custom terminology |
+| **Polly** | Speech | Text-to-speech, neural voices, SSML markup for pronunciation |
+| **Lex** | Conversational | Build chatbots with NLU (powers Alexa), intents + slots + fulfillment |
+| **Personalize** | Recommendations | Real-time personalization using user behavior data |
+| **Forecast** | Time Series | ML-based time-series forecasting, no ML expertise needed |
+| **Kendra** | Search | Intelligent enterprise search using NLP, connectors for 30+ sources |
+| **Textract** | Documents | Extract text, tables, forms, and queries from documents |
+| **Comprehend** | NLP | Sentiment, entities, key phrases, PII detection, custom classification |
+| **Comprehend Medical** | Healthcare NLP | Extract medical entities (conditions, medications, dosages) from clinical text |
+| **Lookout for Vision** | Manufacturing | Detect visual defects in manufactured products using computer vision |
+| **Lookout for Metrics** | Anomaly Detection | Detect anomalies in business metrics, find root cause |
+| **Lookout for Equipment** | Industrial | Predict equipment failures from sensor data (vibration, temperature) |
 
 ### Amazon SageMaker
 
@@ -268,6 +572,9 @@ graph LR
 | **Amazon Nova Models** | Amazon's own foundation model family: Nova Micro (text-only, fastest/cheapest), Nova Lite (multimodal, low-cost), Nova Pro (multimodal, balanced), Nova Premier (most capable, complex reasoning) |
 | **SageMaker HyperPod** | Purpose-built infrastructure for training large foundation models — automated cluster management, fault tolerance, and checkpointing across hundreds of GPUs |
 | **SageMaker Unified Studio** | Single IDE combining SageMaker Studio, data analytics, and Bedrock development — unifying the ML and GenAI development experience |
+| **Bedrock Guardrails Multimodal** | Guardrails now support image content filtering in addition to text, detecting harmful visual content |
+| **Bedrock Prompt Management** | Create, version, and manage prompt templates centrally. Compare prompt performance across models and versions |
+| **Bedrock Custom Model Import** | Import and run your own fine-tuned models (Llama, Mistral) on Bedrock's managed infrastructure |
 
 ### Q10: What is the Amazon Nova model family and when do you use each model?
 
@@ -312,6 +619,30 @@ graph LR
 ### Q20: How do you run AI inference at the edge?
 
 **A:** For scenarios requiring local inference (factories, vehicles, remote sites): (1) **SageMaker Edge Manager** — compiles SageMaker models for edge hardware (ARM, x86, GPU), deploys to edge devices, monitors model performance, and manages model versions across a fleet. Uses SageMaker Neo for model compilation and optimization. (2) **IoT Greengrass ML Inference** — deploy ML models to Greengrass core devices as Lambda functions or Greengrass components. Supports pre-trained models from SageMaker, TensorFlow, and PyTorch. (3) **AWS Panorama** — purpose-built for computer vision at the edge. Runs vision models on the Panorama Appliance connected to IP cameras for real-time video analysis (defect detection, safety compliance). (4) **Bedrock at the edge** — not natively supported; use a lightweight model (ONNX, TFLite) compiled with Neo for edge, or stream to Bedrock when connectivity permits. Edge inference is essential for: low-latency requirements (<10ms), intermittent connectivity, data sovereignty (data cannot leave the site), and high-bandwidth data (video streams).
+
+### Q21: Explain supervised, unsupervised, and reinforcement learning with AWS examples.
+
+**A:** **Supervised learning**: Model learns from labeled data (input-output pairs). Example: SageMaker XGBoost trained on historical transactions labeled as fraudulent/legitimate to predict fraud. **Unsupervised learning**: Model finds patterns in unlabeled data. Example: SageMaker K-Means clustering customer purchase data to identify segments without predefined groups. **Reinforcement learning**: An agent learns by interacting with an environment and receiving rewards. Example: SageMaker RL training an ad bidding agent that learns to maximize click-through rates through trial and error. Key: supervised needs labels, unsupervised finds structure, RL maximizes cumulative reward.
+
+### Q22: What is the difference between classification and regression?
+
+**A:** **Classification** predicts discrete categories: "Is this email spam?" (binary: yes/no), "What type of flower is this?" (multi-class: setosa/versicolor/virginica). Metrics: accuracy, precision, recall, F1 score, AUC-ROC. **Regression** predicts continuous numerical values: "What will this house sell for?" ($425,000), "How many units will we sell next month?" (1,247). Metrics: RMSE, MAE, R-squared. On AWS, SageMaker's Linear Learner and XGBoost handle both -- you set the objective function (binary:logistic for classification, reg:squarederror for regression). If the answer is a number on a continuous scale, it is regression. If the answer is a category/label, it is classification.
+
+### Q23: What is overfitting and how do you prevent it?
+
+**A:** Overfitting means the model memorized the training data instead of learning general patterns. It performs well on training data but poorly on new/unseen data. **Prevention**: (1) **More training data** -- the most effective fix. Use SageMaker Ground Truth for labeling. (2) **Regularization** -- L1 (Lasso) and L2 (Ridge) add penalty terms to reduce model complexity. (3) **Cross-validation** -- k-fold validation gives a robust estimate of generalization. SageMaker Autopilot uses this. (4) **Early stopping** -- stop training when validation loss stops improving. (5) **Dropout** -- randomly disable neurons during training (deep learning). (6) **Simpler model** -- reduce layers, features, or tree depth. The key diagnostic: if training accuracy is 99% but validation accuracy is 70%, the model is overfitting.
+
+### Q24: How does SageMaker Canvas differ from SageMaker Autopilot?
+
+**A:** **Canvas** is a no-code, visual ML tool for **business analysts** with zero ML knowledge. You upload a CSV or connect to a data source, select the column to predict, and Canvas automatically builds, trains, and evaluates models. No code, no notebooks, no algorithm selection. **Autopilot** is an AutoML tool for **data scientists** who want to save time. It automatically explores algorithms, tunes hyperparameters, and generates full notebooks with all the code it used, so you can review, modify, and learn from the process. Canvas is "I want an answer, not code." Autopilot is "I want the best model and the code to reproduce it."
+
+### Q25: Compare the Lookout services.
+
+**A:** AWS has three Lookout services for different domains: **Lookout for Vision** -- computer vision for manufacturing quality inspection. Train on images of good products, detect visual defects (scratches, dents, misalignment) on the production line. **Lookout for Metrics** -- anomaly detection for business metrics. Connects to data sources (S3, CloudWatch, RDS, Redshift), automatically detects unusual patterns (revenue drop, traffic spike), and identifies root cause dimensions. **Lookout for Equipment** -- predictive maintenance for industrial equipment. Ingests sensor data (vibration, temperature, pressure), detects early signs of equipment failure before it happens. Key: Vision = visual defects, Metrics = business KPIs, Equipment = sensor data/predictive maintenance.
+
+### Q26: What are embeddings and how are they used in AWS AI services?
+
+**A:** Embeddings are dense vector representations (arrays of numbers, typically 256-1536 dimensions) that capture the semantic meaning of text, images, or other data. Semantically similar inputs produce similar vectors (measured by cosine similarity). On AWS: (1) **Amazon Titan Embeddings v2** -- Bedrock's embedding model. Converts text to 1024-dimension vectors. Used by Bedrock Knowledge Bases for RAG. (2) **Cohere Embed** -- alternative embedding model on Bedrock, supports multilingual. (3) **Usage in RAG**: documents are chunked and embedded during ingestion, stored in a vector database. At query time, the user's question is embedded and matched against stored vectors to find relevant content. (4) **Beyond RAG**: embeddings power semantic search (Kendra), recommendation systems (Personalize uses implicit embeddings), and duplicate detection. Embeddings are the bridge between human language and mathematical operations that computers can perform.
 
 ## Deep Dive Notes
 
@@ -367,6 +698,28 @@ Four pillars for production AI on AWS:
 
 **Governance** — Model Cards document intended use, limitations, and performance. Model Registry provides version control and approval gates. CloudTrail logs all API calls. For organizations, use SCPs to restrict which Bedrock models can be invoked (e.g., only allow approved models in production accounts). Establish an AI review board that approves new use cases before deployment.
 
+### SageMaker Clarify Bias Metrics Explained
+
+**Pre-training metrics** (analyze the dataset):
+- **Class Imbalance (CI)**: measures whether one class dominates (e.g., 95% non-fraud, 5% fraud).
+- **Difference in Proportions of Labels (DPL)**: compares the proportion of positive outcomes across demographic groups.
+- **Kullback-Leibler Divergence (KL)**: measures how different two distributions are.
+
+**Post-training metrics** (analyze model predictions):
+- **Disparate Impact (DI)**: ratio of positive prediction rates between groups. DI < 0.8 or DI > 1.25 is commonly flagged.
+- **Difference in Positive Proportions in Predicted Labels (DPPL)**: the difference (not ratio) in positive prediction rates.
+- **Accuracy Difference (AD)**: whether the model is more accurate for one group than another.
+
+Run Clarify as a Pipeline step: if bias metrics exceed thresholds, fail the pipeline and prevent the model from reaching production. This is automated governance.
+
+### Prompt Caching Economics
+
+Bedrock prompt caching stores the computed representation of your prompt prefix so it does not need to be re-processed on subsequent requests. **How it works**: structure your prompt with the static portion first (system prompt, few-shot examples, instructions) and the variable portion last (user query). The cached prefix is reused across requests within a 5-minute TTL. **Cost impact**: cached input tokens are priced at 90% discount compared to uncached tokens. For an application with a 2,000-token system prompt and 200-token user queries, caching saves roughly 80% of input token costs. **Best practice**: keep system prompts and examples at the beginning of the prompt, and ensure the variable content comes last.
+
+### Edge Cases in RAG
+
+**When RAG fails**: (1) **Ambiguous queries** -- "How do I fix this?" without context. Mitigate with query rewriting (the FM reformulates the query). (2) **Cross-document reasoning** -- answer requires synthesizing information across multiple documents. Mitigate with larger chunk sizes or hierarchical retrieval. (3) **Numerical/structured data** -- vector search is weak for "What was our Q3 revenue?" from a table. Mitigate with structured data extraction or SQL-based retrieval alongside vector search. (4) **Stale embeddings** -- documents updated but embeddings not re-computed. Mitigate with incremental re-indexing. (5) **Chunk boundary issues** -- the answer spans two chunks. Mitigate with overlapping chunks (20% overlap).
+
 ## Scenario-Based Questions
 
 ### S1: Leadership wants to add a "chat with your documents" feature to the internal portal. Employees should ask questions about company policies, HR docs, and tech docs. How do you build it?
@@ -380,6 +733,18 @@ Four pillars for production AI on AWS:
 ### S3: Your company wants to use GenAI but the legal team is concerned about data privacy — customer data must never leave your AWS account. How do you ensure this?
 
 **A:** (1) **Bedrock** — your data is NOT used to train foundation models. Prompts and responses are not stored by Bedrock (unless you enable logging). This is contractual via the AWS service terms. (2) **VPC endpoints** — create a PrivateLink endpoint for Bedrock so API calls never traverse the public internet. (3) **Guardrails** — configure Bedrock Guardrails to detect and mask PII (names, SSNs, emails) in both inputs and outputs before they reach the model. (4) **Encryption** — all data encrypted in transit (TLS) and at rest (KMS). Use customer-managed KMS keys for Knowledge Bases vector store. (5) **Logging** — enable CloudTrail and model invocation logging to S3 (encrypted) for audit compliance. (6) **Alternative**: for maximum control, fine-tune an open model (Llama) on SageMaker — the model runs entirely in your VPC, on your instances, with no external API calls.
+
+### S4: Your company wants to let non-technical product managers build ML models to predict customer churn without involving the data science team. What do you recommend?
+
+**A:** **SageMaker Canvas**. (1) Product managers log into Canvas via browser (no IDE, no code). (2) Connect to data source -- S3 bucket with customer data or Redshift/Athena. (3) Select the target column ("churned: yes/no"). Canvas automatically handles data preparation, algorithm selection, hyperparameter tuning, and model evaluation. (4) Canvas shows model accuracy, feature importance, and lets users make predictions in the UI. (5) For production use, export the model to SageMaker for deployment. **Why not Autopilot?** Autopilot generates notebooks and requires familiarity with SageMaker Studio -- too technical for product managers. **Governance**: set up IAM roles so Canvas users can only access approved datasets, and use SageMaker Model Cards to document each model.
+
+### S5: Your GenAI customer support chatbot is occasionally providing incorrect pricing information even though you have a RAG knowledge base with current product data. How do you diagnose and fix this?
+
+**A:** This is a RAG quality problem. **Diagnose**: (1) Enable Bedrock model invocation logging to S3 -- capture the full prompt and response for incorrect answers. (2) Check if the correct pricing document was retrieved -- if not, it is a retrieval problem. If it was retrieved but the model ignored it, it is a generation problem. **Fix retrieval issues**: (1) Review chunking -- pricing tables may be split across chunks. Use semantic chunking that keeps tables intact. (2) Switch to hybrid search (keyword + semantic). (3) Add metadata filtering -- tag documents by product line. **Fix generation issues**: (1) Enable **Bedrock Guardrails contextual grounding** -- set a high grounding threshold (0.8+) to reject responses not supported by retrieved documents. (2) Improve the system prompt: "Only use information from the provided context." (3) Reduce temperature to 0.0 for factual responses.
+
+### S6: Your organization is deploying a loan approval ML model and the legal team requires bias testing, explainability, model versioning, and an audit trail. How do you architect this?
+
+**A:** Full MLOps with responsible AI built in. (1) **Training pipeline** (SageMaker Pipelines): Data preprocessing -> Training (XGBoost) -> Evaluation -> **SageMaker Clarify bias check** (measure DI, DPPL, AD across demographic groups). If bias metrics exceed legal thresholds, the pipeline fails. (2) **Explainability**: Clarify generates **SHAP values** for every prediction, showing which features drove the decision. Store SHAP explanations alongside each prediction in DynamoDB for regulatory review. (3) **Model Registry**: every trained model is registered with version number, training metrics, bias report, and approval status. Legal team reviews and manually approves before production deployment. (4) **Audit trail**: CloudTrail logs all SageMaker API calls. Model invocation logging captures every prediction input/output in S3 (encrypted, immutable with S3 Object Lock). (5) **Model Card**: documents the model's intended use, known limitations, and performance metrics by demographic group. (6) **Monitoring**: Model Monitor detects bias drift in production -- if approval rates diverge across groups, alarm triggers retraining.
 
 ## Cheat Sheet
 
@@ -411,6 +776,34 @@ Four pillars for production AI on AWS:
 | Forecast | Time-series ML forecasting |
 | RAG Patterns | Naive (basic retrieval) vs Advanced (query rewriting, re-ranking, HyDE) |
 | Edge AI | SageMaker Edge Manager, Greengrass ML, Panorama for vision |
+| Supervised Learning | Labeled data, predicts known outcomes. SageMaker: XGBoost, Linear Learner |
+| Unsupervised Learning | Unlabeled data, finds patterns. SageMaker: K-Means, PCA |
+| Classification | Discrete output (yes/no, categories). Metrics: accuracy, precision, recall, F1 |
+| Regression | Continuous output (price, count). Metrics: RMSE, MAE, R-squared |
+| Overfitting | High train accuracy, low test accuracy. Fix: more data, regularization, early stopping |
+| Feature Engineering | Select, transform, create input variables. Tool: SageMaker Data Wrangler |
+| SageMaker Autopilot | AutoML for data scientists. Auto-selects algorithm, generates notebooks |
+| SageMaker Ground Truth | Data labeling: human workforce + active learning (ML pre-labels) |
+| SageMaker Neo | Compile/optimize models for edge hardware (ARM, x86) |
+| SageMaker Experiments | Track ML runs: parameters, metrics, artifacts. Compare side-by-side |
+| Transformer | Self-attention architecture behind all modern LLMs |
+| Tokens | Unit of LLM processing. ~3/4 of an English word. Pricing and limits use tokens |
+| Temperature | Controls randomness. Low (0.0) = factual. High (1.0) = creative |
+| Prompt Engineering | Zero-shot, few-shot, chain-of-thought, system prompts. Try first before fine-tuning |
+| Prompt Caching | Cache static prefix (system prompt), variable part last. 90% discount on cached tokens |
+| Chunking | Fixed-size (300-500 tokens, 20% overlap) is a good default. Semantic for structured docs |
+| Hybrid Search | Keyword (BM25) + semantic (vector). Better than either alone. OpenSearch supports natively |
+| Embeddings | Dense vectors capturing semantic meaning. Titan Embeddings v2, Cohere Embed |
+| Vector Stores | OpenSearch Serverless (default), Aurora pgvector, Pinecone, MemoryDB |
+| Contextual Grounding | Hallucination detection -- checks response against source documents |
+| Bias Types | Selection (bad data sampling), Measurement (bad collection), Algorithmic (model amplifies) |
+| SHAP Values | Feature importance per prediction. SageMaker Clarify. Required for regulated industries |
+| MLOps Flow | Train -> Evaluate -> Bias Check -> Register -> Approve -> Deploy -> Monitor -> Retrain |
+| Shadow Deployment | New model gets traffic copy, responses discarded. Zero-risk production testing |
+| Comprehend Medical | Extract medical entities (conditions, meds, dosages) from clinical text |
+| Lookout for Vision | Visual defect detection for manufacturing |
+| Lookout for Metrics | Business metric anomaly detection with root cause analysis |
+| Lookout for Equipment | Predictive maintenance from sensor data |
 
 ---
 

@@ -35,7 +35,7 @@ All diagrams use [Mermaid](https://mermaid.js.org/) syntax and render natively o
 |---|---------|--------|-----------|
 | 07 | [Serverless](07-serverless/) | Lambda, API Gateway, Step Functions, EventBridge, SAM, AppSync, Lambda@Edge, Pipes | 25 |
 | 08 | [Containers](08-containers/) | ECS, EKS, Fargate, ECR, App Runner, EKS Pod Identity, Service Connect, Karpenter | 22 |
-| 09 | [DevOps & Infrastructure](09-devops-and-infra/) | CloudFormation, CDK, CodePipeline, CodeBuild, CodeDeploy, CloudTrail, AWS Config, X-Ray, Observability | 32 |
+| 09 | [DevOps & Infrastructure](09-devops-and-infra/) | CloudFormation, CDK, CodePipeline, CodeBuild, CodeDeploy, CloudTrail, AWS Config, X-Ray, Observability, CloudWatch Advanced, Config Conformance Packs | 32 |
 
 ### Data & Analytics (Week 7)
 
@@ -58,7 +58,7 @@ All diagrams use [Mermaid](https://mermaid.js.org/) syntax and render natively o
 | 14 | [Cloud Migration](14-cloud-migration/) | 7 Rs, AWS MGN, DMS, SCT, Migration Hub, Snow Family, DataSync, Mainframe Modernization | 18 |
 | 15 | [Cost Optimization](15-cost-optimization/) | Cost Explorer, Budgets, Trusted Advisor, Savings Plans, Spot, FinOps, Unit Economics | 18 |
 | 16 | [Systems Manager](16-systems-manager/) | Parameter Store, Session Manager, Patch Manager, Run Command, AWS Backup, Change Manager | 16 |
-| 17 | [AI & ML Services](17-ai-ml-services/) | Bedrock, SageMaker, Rekognition, Comprehend, Textract, Amazon Nova, RAG, Guardrails | 20 |
+| 17 | [AI & ML Services](17-ai-ml-services/) | Bedrock, SageMaker, Rekognition, Comprehend, Textract, Amazon Nova, RAG, Guardrails, ML Fundamentals, Prompt Engineering, MLOps, Responsible AI | 26 |
 
 ### Advanced Topics (Weeks 11-12)
 
@@ -70,7 +70,7 @@ All diagrams use [Mermaid](https://mermaid.js.org/) syntax and render natively o
 
 ## What's Covered
 
-- **457+ questions** (398 Q&As + 59 scenario-based questions) with detailed answers
+- **463+ questions** (404 Q&As + 62 scenario-based questions) with detailed answers
 - **20 topic sections** covering all major AWS services
 - **23 architecture scenarios** with production-grade diagrams
 - **Latest AWS updates** (2025-2026) including Bedrock, Graviton4, VPC Lattice, Aurora Limitless
@@ -133,13 +133,13 @@ This repo aligns with multiple AWS certification tracks. Use the table below to 
 
 | Exam Domain | Weight | Repo Sections | Coverage |
 |-------------|--------|---------------|----------|
-| Fundamentals of AI & ML | 20% | 17 AI & ML Services | ★★★☆☆ |
-| Fundamentals of Generative AI | 24% | 17 AI & ML Services (Bedrock, RAG) | ★★★☆☆ |
-| Applications of Foundation Models | 28% | 17 AI & ML Services (Bedrock agents, guardrails) | ★★☆☆☆ |
-| Responsible AI Guidelines | 14% | 17 AI & ML Services (partial) | ★★☆☆☆ |
-| Security & Governance for AI | 14% | 02 IAM, 17 AI & ML Services | ★★★☆☆ |
+| Fundamentals of AI & ML | 20% | 17 AI & ML Services (ML Fundamentals, SageMaker Ecosystem) | ★★★★★ |
+| Fundamentals of Generative AI | 24% | 17 AI & ML Services (GenAI Fundamentals, Prompt Engineering, Embeddings) | ★★★★★ |
+| Applications of Foundation Models | 28% | 17 AI & ML Services (Bedrock agents, guardrails, RAG Deep Dive, MLOps) | ★★★★☆ |
+| Responsible AI Guidelines | 14% | 17 AI & ML Services (Bias Types, Explainability, Privacy, Governance) | ★★★★★ |
+| Security & Governance for AI | 14% | 02 IAM, 17 AI & ML Services | ★★★★☆ |
 
-**Verdict: Starting point only — supplement with SageMaker deep dive, MLOps patterns, and responsible AI documentation.**
+**Verdict: Strong coverage — supplement with hands-on Bedrock, SageMaker Clarify, and responsible AI documentation.**
 
 ## Section Format
 
