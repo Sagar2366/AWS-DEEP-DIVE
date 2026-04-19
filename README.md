@@ -47,7 +47,7 @@ All diagrams use [Mermaid](https://mermaid.js.org/) syntax and render natively o
 
 | # | Section | Topics | Questions |
 |---|---------|--------|-----------|
-| 11 | [Architecture Scenarios](11-architecture-scenarios/) | 12 real-world system design problems with diagrams and solutions | — |
+| 11 | [Architecture Scenarios](11-architecture-scenarios/) | 23 real-world system design problems with diagrams and solutions | — |
 | 12 | [Interview Tips](12-interview-tips/) | Question patterns, answering frameworks, behavioral tips, design patterns, 50+ service reference | — |
 
 ### Specialized Topics (Weeks 9-10)
@@ -70,14 +70,76 @@ All diagrams use [Mermaid](https://mermaid.js.org/) syntax and render natively o
 
 ## What's Covered
 
-- **389+ interview questions** with detailed answers
+- **457+ questions** (398 Q&As + 59 scenario-based questions) with detailed answers
 - **20 topic sections** covering all major AWS services
-- **12 architecture scenarios** with production-grade diagrams
+- **23 architecture scenarios** with production-grade diagrams
 - **Latest AWS updates** (2025-2026) including Bedrock, Graviton4, VPC Lattice, Aurora Limitless
 - **Deep dive notes** for advanced learners
 - **Cheat sheets** for quick revision
 - **Design patterns** (Saga, CQRS, Event Sourcing, Strangler Fig, Circuit Breaker)
 - **Behavioral interview prep** with 10 common questions and frameworks
+
+## AWS Certification Mapping
+
+This repo aligns with multiple AWS certification tracks. Use the table below to study by certification:
+
+### AWS Solutions Architect Associate (SAA-C03)
+
+| Exam Domain | Weight | Repo Sections | Coverage |
+|-------------|--------|---------------|----------|
+| Design Secure Architectures | 30% | 02 IAM, 05 Networking, 13 Cognito & WAF | ★★★★★ |
+| Design Resilient Architectures | 26% | 03 Compute, 06 Databases, 07 Serverless, 08 Containers, 18 Messaging, 19 DR | ★★★★★ |
+| Design High-Performing Architectures | 24% | 04 Storage, 05 Networking, 06 Databases, 10 Data & Analytics, 20 DynamoDB | ★★★★★ |
+| Design Cost-Optimized Architectures | 20% | 15 Cost Optimization, 03 Compute (Spot/RI) | ★★★★☆ |
+
+**Verdict: Primary study material — covers 85%+ of exam topics.**
+
+### AWS Developer Associate (DVA-C02)
+
+| Exam Domain | Weight | Repo Sections | Coverage |
+|-------------|--------|---------------|----------|
+| Development with AWS Services | 32% | 07 Serverless, 06 Databases, 20 DynamoDB, 04 Storage | ★★★★☆ |
+| Security | 26% | 02 IAM, 13 Cognito | ★★★★☆ |
+| Deployment | 24% | 09 DevOps, 08 Containers | ★★★★☆ |
+| Troubleshooting & Optimization | 18% | 09 DevOps (X-Ray, CloudWatch), 18 Messaging | ★★★☆☆ |
+
+**Verdict: Strong foundation — supplement with AWS SDK docs, SAM/CDK hands-on, and testing patterns.**
+
+### AWS SysOps Associate (SOA-C02)
+
+| Exam Domain | Weight | Repo Sections | Coverage |
+|-------------|--------|---------------|----------|
+| Monitoring, Logging & Remediation | 20% | 09 DevOps (CloudWatch, CloudTrail, Config) | ★★★★☆ |
+| Reliability & Business Continuity | 16% | 19 Resilience & DR, 03 Compute (ASG) | ★★★★★ |
+| Deployment, Provisioning & Automation | 18% | 09 DevOps (CloudFormation, CDK, CI/CD) | ★★★★☆ |
+| Security & Compliance | 16% | 02 IAM, 13 Cognito & WAF | ★★★★★ |
+| Networking & Content Delivery | 18% | 05 Networking (VPC, Route 53, CloudFront) | ★★★★★ |
+| Cost & Performance Optimization | 12% | 15 Cost Optimization, 16 Systems Manager | ★★★★☆ |
+
+**Verdict: Strong — supplement with CloudWatch Insights, SSM Automation, and Config remediation hands-on.**
+
+### AWS Cloud Practitioner (CLF-C02)
+
+| Exam Domain | Weight | Repo Sections | Coverage |
+|-------------|--------|---------------|----------|
+| Cloud Concepts | 24% | 01 Cloud Fundamentals | ★★★★★ |
+| Security & Compliance | 30% | 02 IAM & Security | ★★★★☆ |
+| Cloud Technology & Services | 34% | 03-10 (Compute, Storage, Networking, Databases, Serverless) | ★★★★☆ |
+| Billing, Pricing & Support | 12% | 15 Cost Optimization | ★★★☆☆ |
+
+**Verdict: Good but advanced — best for candidates who want depth beyond the exam. Supplement with AWS Free Tier, pricing models, and support plans.**
+
+### AWS AI Practitioner (AIF-C01)
+
+| Exam Domain | Weight | Repo Sections | Coverage |
+|-------------|--------|---------------|----------|
+| Fundamentals of AI & ML | 20% | 17 AI & ML Services | ★★★☆☆ |
+| Fundamentals of Generative AI | 24% | 17 AI & ML Services (Bedrock, RAG) | ★★★☆☆ |
+| Applications of Foundation Models | 28% | 17 AI & ML Services (Bedrock agents, guardrails) | ★★☆☆☆ |
+| Responsible AI Guidelines | 14% | 17 AI & ML Services (partial) | ★★☆☆☆ |
+| Security & Governance for AI | 14% | 02 IAM, 17 AI & ML Services | ★★★☆☆ |
+
+**Verdict: Starting point only — supplement with SageMaker deep dive, MLOps patterns, and responsible AI documentation.**
 
 ## Section Format
 
