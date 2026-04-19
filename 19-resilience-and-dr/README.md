@@ -392,6 +392,20 @@ Cell sizing guidelines:
 - **Shared nothing** — cells don't call each other
 - **Cell router** is the single shared component — must be highly available (multi-region, multi-AZ)
 
+## Scenario-Based Questions
+
+### S1: Your application's primary region (us-east-1) has a partial outage — EC2 is degraded but RDS is fine. Do you failover to DR or wait it out?
+
+**A:** **Partial outages are the hardest decisions.** Framework: (1) **Assess impact** — check AWS Health Dashboard for the specific service. Is it affecting your AZs? Use CloudWatch and your application's error rate/latency metrics, not just AWS status. (2) **AZ-level mitigation first** — if only one AZ is impaired, use **Route 53 ARC zonal shift** to move traffic away from that AZ within the same region. This is faster and less risky than full regional failover. (3) **Failover threshold** — define this in advance (e.g., "if error rate > 10% for > 15 minutes, failover"). Don't decide during the incident. (4) **If AZ shift doesn't help** — execute regional failover. (5) **Key insight**: partial outages often recover within 30-60 minutes. Full failover takes 15-20 minutes and introduces its own risks (data sync lag, cold cache). If your RTO is 1 hour, it's often better to wait for a partial outage unless customer impact is severe.
+
+### S2: After a regional failover, your DR region works but DynamoDB Global Tables shows 30 seconds of data loss. How did this happen and how do you prevent it?
+
+**A:** DynamoDB Global Tables replicates asynchronously — typical lag is <1 second, but during a region outage, in-flight replications may not complete. (1) **What happened**: writes accepted in the primary region during the last 30 seconds before the outage hadn't replicated to DR yet. These writes are lost. (2) **This is expected behavior** — Global Tables has RPO > 0 (eventual consistency). (3) **Mitigation**: (a) **Dual-write** — for critical data (payments), write to both regions simultaneously. More complex but RPO = 0. (b) **SQS as write-ahead log** — write to SQS in both regions before DynamoDB. If primary fails, DR replays from its local SQS. (c) **Application-level reconciliation** — after failover, run a reconciliation job that compares primary and DR data once the primary recovers. (4) **Accept it** — for most use cases, 30 seconds of data loss is acceptable. Document it in your DR runbook and communicate to stakeholders.
+
+### S3: Your monitoring shows that an Availability Zone is experiencing elevated error rates. How do you handle it without overreacting?
+
+**A:** (1) **Verify** — check multiple signals: EC2 status checks, ALB target health per AZ, application error rates per AZ. One metric spiking could be a false alarm. (2) **Automatic mitigation** — if you've configured your ALB with cross-zone load balancing and health checks, unhealthy targets in the impaired AZ are automatically removed from rotation. ASG launches replacements in healthy AZs. This is your first line of defense and requires zero intervention. (3) **Route 53 ARC zonal shift** — if automatic mitigation isn't enough, use zonal shift to move all traffic away from the impaired AZ. Takes effect in seconds. (4) **Don't terminate instances** — the AZ may recover and those instances come back healthy. (5) **Communicate** — notify the team via Slack/PagerDuty but frame it as "monitoring, not incident." (6) **Escalate to regional failover** only if multiple AZs are impaired or if the AZ doesn't recover within your SLA window.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

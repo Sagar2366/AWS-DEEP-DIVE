@@ -822,6 +822,519 @@ graph TB
 
 ---
 
+---
+
+## Scenario 13: Production Database at 95% CPU — Troubleshooting Runbook
+
+### Problem Statement
+Your production Aurora MySQL cluster's writer instance is at 95% CPU. Application response times have tripled. The on-call page fires at 2 AM. Walk through your investigation and resolution.
+
+### Investigation Flow
+
+```mermaid
+flowchart TD
+    ALERT["CloudWatch Alarm:<br/>CPU > 90% for 5 min"]
+    ALERT --> VERIFY["Step 1: Verify the problem<br/>CloudWatch → CPUUtilization,<br/>DatabaseConnections, ReadIOPS, WriteIOPS"]
+
+    VERIFY --> IDENTIFY["Step 2: Identify the cause"]
+    IDENTIFY --> PI["Performance Insights:<br/>Top SQL by wait time"]
+    IDENTIFY --> SLOW["Slow query log:<br/>queries > 1s"]
+    IDENTIFY --> CONN["Connection count:<br/>sudden spike?"]
+
+    PI --> CAUSE{Root Cause?}
+    SLOW --> CAUSE
+    CONN --> CAUSE
+
+    CAUSE -->|"Bad query"| FIX_QUERY["Kill query + add index<br/>or optimize SQL"]
+    CAUSE -->|"Traffic spike"| FIX_TRAFFIC["Add read replica +<br/>route reads away from writer"]
+    CAUSE -->|"Missing index<br/>(full table scan)"| FIX_INDEX["Add index +<br/>enable slow query log"]
+    CAUSE -->|"Connection storm"| FIX_CONN["Enable RDS Proxy +<br/>connection pooling"]
+    CAUSE -->|"Instance too small"| FIX_SIZE["Scale up instance class<br/>(apply during maintenance or failover)"]
+
+    FIX_QUERY --> POSTMORTEM["Step 3: Postmortem<br/>- What triggered it?<br/>- How to prevent recurrence?<br/>- Add CloudWatch alarms at 70%"]
+    FIX_TRAFFIC --> POSTMORTEM
+    FIX_INDEX --> POSTMORTEM
+    FIX_CONN --> POSTMORTEM
+    FIX_SIZE --> POSTMORTEM
+```
+
+### Key Decisions
+| Decision | Choice | Why |
+|----------|--------|-----|
+| First diagnostic tool | Performance Insights | Shows top SQL by wait time without SSH access |
+| Immediate mitigation | Kill long-running query / add replica | Buys time before root cause fix |
+| Long-term fix | RDS Proxy + read replicas + query optimization | Addresses all common causes |
+| Prevention | CloudWatch alarm at 70%, slow query log always on | Early warning before 95% crisis |
+
+---
+
+## Scenario 14: Zero-Downtime Migration from EC2 to EKS
+
+### Problem Statement
+Your company runs 15 microservices on EC2 instances behind an ALB. You need to migrate to EKS without any downtime or customer impact. Design the migration strategy.
+
+### Architecture — Phased Migration
+
+```mermaid
+flowchart LR
+    subgraph "Phase 1: Parallel Run"
+        ALB["ALB<br/>(weighted routing)"]
+        ALB -->|"90% traffic"| EC2["EC2 Fleet<br/>(existing)"]
+        ALB -->|"10% traffic"| EKS["EKS Pods<br/>(new)"]
+    end
+
+    subgraph "Phase 2: Shift Traffic"
+        ALB2["ALB"]
+        ALB2 -->|"10%"| EC2_2["EC2"]
+        ALB2 -->|"90%"| EKS_2["EKS"]
+    end
+
+    subgraph "Phase 3: Complete"
+        ALB3["ALB"]
+        ALB3 -->|"100%"| EKS_3["EKS"]
+        EC2_3["EC2<br/>(decommissioned)"]
+    end
+```
+
+### Migration Steps
+
+1. **Containerize one service at a time** — start with the least critical service. Create Dockerfile, test locally, push to ECR.
+2. **Deploy to EKS alongside EC2** — both targets registered in the same ALB target group with weighted routing.
+3. **Canary traffic (10%)** — route 10% to EKS, monitor latency, error rates, and resource usage for 48 hours.
+4. **Shift to 50/50** — if metrics match, increase EKS traffic. Compare CloudWatch dashboards side-by-side.
+5. **Full cutover (100% to EKS)** — keep EC2 instances running but receiving no traffic for 24 hours (instant rollback).
+6. **Decommission EC2** — terminate instances, clean up AMIs, security groups, and IAM roles.
+7. **Repeat for next service** — migrate one service per sprint using the same pattern.
+
+### Key Decisions
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Migration pattern | Strangler fig with weighted ALB | Zero downtime, instant rollback |
+| Service order | Least critical first | Learn the process on low-risk services |
+| Traffic shift speed | 10% → 50% → 100% over 1 week per service | Time to catch issues at each stage |
+| Rollback strategy | Keep EC2 running 24h after cutover | One ALB weight change to roll back |
+
+---
+
+## Scenario 15: Lambda Function Intermittent Timeouts — Debugging
+
+### Problem Statement
+A Lambda function processing SQS messages is timing out intermittently (~5% of invocations). The function normally completes in 2 seconds but occasionally hits the 30-second timeout. Diagnose and fix it.
+
+### Debugging Flow
+
+```mermaid
+flowchart TD
+    SYMPTOM["Symptom: 5% of invocations<br/>timeout at 30s"]
+
+    SYMPTOM --> CHECK1["Check 1: X-Ray traces<br/>Where is time spent?"]
+    SYMPTOM --> CHECK2["Check 2: CloudWatch metrics<br/>Duration distribution (p50 vs p99)"]
+    SYMPTOM --> CHECK3["Check 3: Concurrent executions<br/>vs reserved concurrency"]
+
+    CHECK1 --> XRAY_RESULT{X-Ray shows delay in...}
+
+    XRAY_RESULT -->|"DynamoDB call"| CAUSE_DDB["Hot partition or<br/>throttling (ProvisionedThroughputExceeded)"]
+    XRAY_RESULT -->|"Cold start"| CAUSE_COLD["Cold start in VPC<br/>(ENI attachment)"]
+    XRAY_RESULT -->|"External API call"| CAUSE_API["Downstream service<br/>slow or unresponsive"]
+    XRAY_RESULT -->|"Initialization"| CAUSE_INIT["Heavy SDK loading<br/>or large deployment package"]
+
+    CAUSE_DDB --> FIX_DDB["Switch to on-demand capacity<br/>or add write sharding"]
+    CAUSE_COLD --> FIX_COLD["Use Provisioned Concurrency<br/>or SnapStart (Java)"]
+    CAUSE_API --> FIX_API["Add timeout (3s) + retry<br/>+ circuit breaker"]
+    CAUSE_INIT --> FIX_INIT["Lazy-load SDKs,<br/>reduce package size, use layers"]
+```
+
+### Resolution Strategy
+
+| Cause | Fix | Prevention |
+|-------|-----|-----------|
+| Cold starts (VPC) | Provisioned Concurrency (5-10 instances) | Costs ~$15/month per instance but eliminates cold starts |
+| Downstream timeout | Set HTTP timeout to 5s, retry 2x with backoff | Never use default SDK timeout (infinite in some SDKs) |
+| DynamoDB throttling | On-demand mode or increase provisioned WCU | CloudWatch alarm on ThrottledRequests |
+| Large package | Use Lambda Layers, remove unused dependencies | Keep deployment package under 50 MB |
+| SQS batch too large | Reduce batch size from 10 to 5 | Ensure batch window × batch size < timeout |
+
+---
+
+## Scenario 16: S3 Cost Spike Investigation — 40% Increase
+
+### Problem Statement
+Your AWS bill shows S3 costs jumped 40% month-over-month. No new features were launched. Investigate and optimize.
+
+### Investigation Runbook
+
+```mermaid
+flowchart TD
+    SPIKE["S3 cost jumped 40%"]
+
+    SPIKE --> CUR["Step 1: Cost & Usage Report<br/>Break down by bucket, storage class,<br/>and request type"]
+
+    CUR --> STORAGE_COST{What increased?}
+
+    STORAGE_COST -->|"Storage volume"| VOL["Data growth:<br/>Which bucket grew?"]
+    STORAGE_COST -->|"Request costs"| REQ["API calls:<br/>GET/PUT/LIST spike?"]
+    STORAGE_COST -->|"Data transfer"| XFER["Transfer out:<br/>Cross-region or internet?"]
+
+    VOL --> VOL_FIX["Enable lifecycle rules:<br/>IA after 30d, Glacier after 90d,<br/>delete incomplete multipart uploads"]
+    REQ --> REQ_INVESTIGATE["S3 Server Access Logs:<br/>Who is making the calls?"]
+    XFER --> XFER_FIX["Use CloudFront for public content<br/>Use VPC endpoints for internal<br/>Use S3 Transfer Acceleration"]
+
+    REQ_INVESTIGATE --> REQ_CAUSE{Cause?}
+    REQ_CAUSE -->|"LIST calls"| LIST_FIX["Optimize app: cache S3 inventory<br/>instead of repeated LIST operations"]
+    REQ_CAUSE -->|"Lifecycle transitions"| TRANS_FIX["Expected cost — transition requests<br/>are billed, will decrease next month"]
+    REQ_CAUSE -->|"Unauthorized access"| AUTH_FIX["Tighten bucket policy,<br/>enable CloudTrail data events"]
+```
+
+### Common S3 Cost Traps
+
+| Trap | Why It's Expensive | Fix |
+|------|-------------------|-----|
+| No lifecycle rules | Data stays in Standard forever | Move to IA (30d), Glacier (90d), delete (365d) |
+| Incomplete multipart uploads | Orphaned parts accumulate silently | Lifecycle rule: abort incomplete uploads after 7 days |
+| Frequent LIST operations | $5 per million LIST requests | Cache inventory results, use S3 Inventory for bulk listing |
+| Cross-region replication without lifecycle | Replicated data also needs lifecycle rules | Apply matching lifecycle rules to destination bucket |
+| Versioning without expiration | Old versions accumulate | Lifecycle: expire noncurrent versions after 30 days |
+| Intelligent-Tiering monitoring fee | $0.0025 per 1,000 objects/month | Only use for objects > 128 KB with unpredictable access |
+
+---
+
+## Scenario 17: Automated Incident Response — Security Breach Detection
+
+### Problem Statement
+Design an automated incident response system that detects, contains, and notifies when a potential security breach occurs (compromised IAM credentials, unauthorized API calls, or data exfiltration).
+
+### Architecture
+
+```mermaid
+flowchart TB
+    subgraph "Detection Layer"
+        GD["GuardDuty<br/>(threat detection)"]
+        CT["CloudTrail<br/>(API logging)"]
+        MACIE["Macie<br/>(data classification)"]
+        CONFIG["AWS Config<br/>(compliance drift)"]
+    end
+
+    GD -->|"Finding"| EB["EventBridge"]
+    CT -->|"Unusual API"| EB
+    MACIE -->|"PII exposed"| EB
+    CONFIG -->|"Non-compliant"| EB
+
+    EB --> SF["Step Functions<br/>(Incident Orchestrator)"]
+
+    SF --> CONTAIN["Step 1: Auto-Contain"]
+    CONTAIN --> ISOLATE["Attach deny-all<br/>IAM policy to<br/>compromised user"]
+    CONTAIN --> REVOKE["Revoke active<br/>sessions"]
+    CONTAIN --> SG["Isolate EC2:<br/>move to quarantine SG"]
+
+    SF --> COLLECT["Step 2: Collect Evidence"]
+    COLLECT --> SNAP["EBS snapshot<br/>of affected instances"]
+    COLLECT --> LOGS["Export CloudTrail<br/>logs to S3 (forensic bucket)"]
+    COLLECT --> FLOW["VPC Flow Logs<br/>for affected ENIs"]
+
+    SF --> NOTIFY["Step 3: Notify"]
+    NOTIFY --> SNS_SEC["SNS → Security team<br/>(PagerDuty + Slack)"]
+    NOTIFY --> TICKET["Create Jira/ServiceNow<br/>incident ticket"]
+
+    SF --> RECOVER["Step 4: Recover"]
+    RECOVER --> ROTATE["Rotate all access keys<br/>for compromised user"]
+    RECOVER --> PATCH["Run SSM patch<br/>on affected instances"]
+```
+
+### Key Decisions
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Detection | GuardDuty + CloudTrail + Macie | Multi-layer: threats, API anomalies, data exposure |
+| Automation trigger | EventBridge → Step Functions | Serverless, visual workflow, built-in retry |
+| Auto-containment | Deny-all IAM policy (not delete) | Preserves evidence; deletion destroys audit trail |
+| Evidence preservation | EBS snapshots + CloudTrail export to locked S3 | Immutable evidence for forensic investigation |
+| Notification | SNS → PagerDuty + Slack + ticket creation | Ensures human review of automated actions |
+
+---
+
+## Scenario 18: Design a Multi-Account CI/CD Pipeline for 10 Microservices
+
+### Problem Statement
+Your organization has 10 microservices across 4 AWS accounts (dev, staging, prod, shared-services). Design a CI/CD pipeline that deploys all services with proper isolation, approval gates, and rollback capability.
+
+### Architecture
+
+```mermaid
+flowchart TB
+    subgraph "Shared-Services Account"
+        REPO["CodeCommit / GitHub"]
+        PIPE["CodePipeline<br/>(one per service)"]
+        ECR["ECR<br/>(container images)"]
+        ARTIFACTS["S3<br/>(build artifacts)"]
+    end
+
+    subgraph "Build Stage"
+        CB["CodeBuild"]
+        CB --> TEST["Unit tests + SAST"]
+        CB --> BUILD["Docker build + push to ECR"]
+        CB --> SCAN["ECR image scan"]
+    end
+
+    subgraph "Dev Account"
+        DEV_EKS["EKS Dev"]
+        DEV_DEPLOY["Auto-deploy on merge<br/>(no approval)"]
+    end
+
+    subgraph "Staging Account"
+        STG_EKS["EKS Staging"]
+        STG_TEST["Integration tests +<br/>performance tests"]
+    end
+
+    subgraph "Prod Account"
+        PROD_EKS["EKS Prod"]
+        PROD_CANARY["Canary deployment<br/>(10% → 50% → 100%)"]
+    end
+
+    REPO --> PIPE --> CB
+    CB --> DEV_DEPLOY --> DEV_EKS
+    DEV_EKS -->|"Auto-promote<br/>after tests pass"| STG_EKS
+    STG_EKS --> STG_TEST
+    STG_TEST -->|"Manual approval<br/>gate"| PROD_CANARY --> PROD_EKS
+```
+
+### Cross-Account Access Pattern
+
+| Component | Account | Access Method |
+|-----------|---------|---------------|
+| CodePipeline | Shared-services | Assumes cross-account IAM roles in each target account |
+| ECR images | Shared-services | Resource-based policy allows pull from dev/staging/prod |
+| KMS (artifact encryption) | Shared-services | Key policy grants decrypt to target account roles |
+| EKS deployment | Each target account | CodeBuild assumes role → kubectl apply |
+| Approval gate | Prod account | SNS notification → manual approval in CodePipeline console |
+
+### Rollback Strategy
+1. **Dev/Staging**: Automatic rollback via Kubernetes rolling update (readiness probe fails → rollback)
+2. **Prod canary**: CloudWatch alarm on error rate → automatic rollback to previous version
+3. **Emergency**: One-click rollback in CodePipeline to redeploy last known good artifact
+
+---
+
+## Scenario 19: Diagnosing and Fixing DynamoDB Throttling in Production
+
+### Problem Statement
+Your DynamoDB table is experiencing intermittent `ProvisionedThroughputExceededException` errors during business hours despite auto-scaling being enabled. Orders are being dropped. Investigate and resolve.
+
+### Investigation Flow
+
+```mermaid
+flowchart TD
+    THROTTLE["ThrottledRequests<br/>alarm fires"]
+
+    THROTTLE --> METRICS["Step 1: CloudWatch Metrics"]
+    METRICS --> CONSUMED["ConsumedWriteCapacityUnits<br/>vs ProvisionedWriteCapacityUnits"]
+    METRICS --> ACCOUNT["AccountProvisionedWriteCapacityUtilization<br/>(account-level limits?)"]
+
+    CONSUMED --> PATTERN{Throttling Pattern?}
+
+    PATTERN -->|"Spiky traffic<br/>(burst then calm)"| CAUSE_BURST["Auto-scaling too slow<br/>(reacts in 1-2 min)"]
+    PATTERN -->|"Consistent throttling<br/>on specific operations"| CAUSE_HOT["Hot partition:<br/>one PK getting all writes"]
+    PATTERN -->|"GSI throttling<br/>(not base table)"| CAUSE_GSI["GSI capacity<br/>insufficient"]
+
+    CAUSE_BURST --> FIX_BURST["Switch to on-demand mode<br/>or pre-warm with scheduled scaling"]
+    CAUSE_HOT --> FIX_HOT["Redesign PK: add write sharding<br/>(append random suffix 1-10)"]
+    CAUSE_GSI --> FIX_GSI["Increase GSI capacity<br/>independently from base table"]
+
+    FIX_BURST --> VERIFY["Step 2: Verify fix<br/>Monitor ThrottledRequests = 0<br/>for 24 hours"]
+    FIX_HOT --> VERIFY
+    FIX_GSI --> VERIFY
+```
+
+### Hot Partition Deep Dive
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| One partition throttled, others idle | Low-cardinality PK (e.g., `status=PENDING`) | Redesign PK to high cardinality |
+| Writes spike on single item | Popular product or viral content | Write sharding: `PRODUCT#123#<random(1-10)>` |
+| GSI throttled but base table fine | GSI PK has lower cardinality than base | Add GSI with better key distribution |
+| Auto-scaling not keeping up | Traffic spikes faster than 1-2 min scaling | On-demand mode or scheduled pre-scaling before known events |
+
+---
+
+## Scenario 20: Recovering from an Accidental Production Deletion
+
+### Problem Statement
+An engineer accidentally deleted a critical DynamoDB table in production. The table had 50 million items. Design the recovery process and then implement safeguards to prevent it from happening again.
+
+### Recovery Flow
+
+```mermaid
+flowchart TD
+    DELETED["DynamoDB table deleted<br/>in production"]
+
+    DELETED --> IMMEDIATE["Immediate Actions<br/>(first 5 minutes)"]
+    IMMEDIATE --> CHECK_PITR["Check: Was Point-in-Time<br/>Recovery (PITR) enabled?"]
+
+    CHECK_PITR -->|"Yes"| PITR_RESTORE["Restore table from PITR<br/>to any second in last 35 days"]
+    CHECK_PITR -->|"No"| CHECK_BACKUP["Check: AWS Backup<br/>or on-demand snapshots?"]
+
+    CHECK_BACKUP -->|"Yes"| BACKUP_RESTORE["Restore from most<br/>recent backup"]
+    CHECK_BACKUP -->|"No"| CHECK_EXPORT["Check: DynamoDB export<br/>to S3 (recent)?"]
+
+    CHECK_EXPORT -->|"Yes"| IMPORT_S3["Import from S3 export<br/>(may lose recent data)"]
+    CHECK_EXPORT -->|"No"| LAST_RESORT["Last resort:<br/>Rebuild from application logs<br/>or upstream data sources"]
+
+    PITR_RESTORE --> RENAME["Rename restored table<br/>to original table name"]
+    BACKUP_RESTORE --> RENAME
+    IMPORT_S3 --> RENAME
+
+    RENAME --> VERIFY_DATA["Verify item count<br/>and sample data"]
+    VERIFY_DATA --> RECONNECT["Update application config<br/>if table name changed"]
+    RECONNECT --> POSTMORTEM["Postmortem + Prevention"]
+```
+
+### Prevention Safeguards
+
+| Safeguard | Implementation | What It Prevents |
+|-----------|---------------|-----------------|
+| **Deletion protection** | `DeletionProtectionEnabled: true` on all prod tables | Accidental `DeleteTable` API calls |
+| **SCP (Service Control Policy)** | Deny `dynamodb:DeleteTable` in prod account for all non-admin roles | Unauthorized deletion even with IAM permissions |
+| **AWS Backup** | Daily automated backups with 35-day retention | Data loss if PITR was disabled |
+| **PITR always on** | Enable Point-in-Time Recovery on every production table | Granular recovery to any second |
+| **CloudTrail alarm** | EventBridge rule on `DeleteTable` API → SNS alert → auto-restore Lambda | Immediate detection and automated recovery |
+| **Terraform/IaC** | `prevent_destroy = true` lifecycle rule | Prevents accidental deletion via IaC |
+
+---
+
+## Scenario 21: Designing a Blue-Green Deployment for a Stateful Application
+
+### Problem Statement
+Your application runs on EC2 behind an ALB with an Aurora database. You need to deploy a database schema change and application update together with zero downtime and instant rollback.
+
+### Architecture
+
+```mermaid
+flowchart TB
+    subgraph "Blue (Current — v1)"
+        ALB_BLUE["Target Group: Blue"]
+        EC2_BLUE["EC2 Fleet (v1)"]
+        AURORA_BLUE["Aurora Writer<br/>(schema v1)"]
+    end
+
+    subgraph "Green (New — v2)"
+        ALB_GREEN["Target Group: Green"]
+        EC2_GREEN["EC2 Fleet (v2)"]
+    end
+
+    ALB["ALB<br/>(weighted routing)"]
+    ALB -->|"100%"| ALB_BLUE
+    ALB -->|"0%"| ALB_GREEN
+
+    AURORA_BLUE --> REPLICA["Aurora Read Replica<br/>(promoted for green)"]
+    EC2_GREEN --> REPLICA
+
+    style ALB_GREEN fill:#90EE90
+    style EC2_GREEN fill:#90EE90
+```
+
+### Deployment Steps
+
+1. **Expand schema** — add new columns/tables (backward-compatible). Both v1 and v2 app code must work with the new schema. Never rename or delete columns in this step.
+2. **Deploy green fleet** — launch v2 EC2 instances registered to green target group. They connect to the same Aurora cluster.
+3. **Smoke test green** — send synthetic traffic to green target group directly (ALB listener rule on a test header).
+4. **Shift traffic** — change ALB weighted routing: 10% green → 50% → 100%. Monitor error rates at each step.
+5. **Drain blue** — once green is at 100% and stable for 1 hour, deregister blue instances.
+6. **Contract schema** — after all traffic is on v2 and no rollback needed (typically 1 week), remove old columns/tables.
+
+### Rollback Plan
+- **Before schema contraction**: flip ALB weight back to 100% blue — instant rollback, database is backward-compatible.
+- **After schema contraction**: restore from Aurora PITR backup (minutes, not instant). This is why step 6 waits a full week.
+
+---
+
+## Scenario 22: Handling a Region-Level Outage — Incident Playbook
+
+### Problem Statement
+AWS us-east-1 experiences a major outage affecting EC2, RDS, and several managed services. Your primary application runs in us-east-1 with warm standby in us-west-2. Walk through the incident response.
+
+### Incident Timeline
+
+```mermaid
+flowchart TD
+    T0["T+0 min: PagerDuty alert<br/>Route 53 health checks failing"]
+    T0 --> T2["T+2 min: Confirm outage<br/>Check AWS Health Dashboard +<br/>cross-verify with us-west-2"]
+    T2 --> T5["T+5 min: Decision — FAILOVER<br/>Incident Commander approves"]
+    T5 --> T7["T+5-10 min: Execute failover"]
+
+    T7 --> DNS["Route 53: activate<br/>failover routing to us-west-2"]
+    T7 --> DB["Aurora Global DB:<br/>promote us-west-2 to writer"]
+    T7 --> SCALE["ASG in us-west-2:<br/>scale to full capacity"]
+
+    DNS --> T15["T+15 min: Verify DR region"]
+    DB --> T15
+    SCALE --> T15
+
+    T15 --> SMOKE["Run smoke tests<br/>against us-west-2"]
+    SMOKE --> T20["T+20 min: Confirm recovery<br/>Application serving from us-west-2"]
+
+    T20 --> MONITOR["Monitor for 24-48 hours<br/>until us-east-1 recovers"]
+    MONITOR --> FAILBACK["Failback procedure:<br/>re-establish replication,<br/>shift traffic back"]
+```
+
+### Failover Checklist
+
+| Step | Action | Owner | Expected Time |
+|------|--------|-------|---------------|
+| 1 | Confirm outage (not a blip) | On-call SRE | 2 minutes |
+| 2 | Page Incident Commander | PagerDuty auto-escalation | 1 minute |
+| 3 | Approve failover decision | Incident Commander | 2 minutes |
+| 4 | Execute Route 53 failover | SRE (or automated) | 1 minute |
+| 5 | Promote Aurora Global DB | SRE via runbook | 1-2 minutes |
+| 6 | Scale up DR compute | Auto (EventBridge trigger) | 3-5 minutes |
+| 7 | Verify and smoke test | SRE + QA | 5 minutes |
+| 8 | Communicate to stakeholders | Incident Commander | Ongoing |
+| **Total** | | | **~15-20 minutes** |
+
+---
+
+## Scenario 23: Optimizing a $50K/month AWS Bill
+
+### Problem Statement
+Your organization spends $50K/month on AWS. Leadership wants a 30% reduction without impacting performance. Design an optimization plan.
+
+### Cost Breakdown Analysis
+
+```mermaid
+pie title Typical AWS Cost Breakdown
+    "EC2/EKS Compute" : 40
+    "RDS/Aurora" : 20
+    "S3 Storage" : 10
+    "Data Transfer" : 10
+    "Lambda/Serverless" : 8
+    "Other" : 12
+```
+
+### Optimization Playbook
+
+| Category | Savings | Action | Effort |
+|----------|---------|--------|--------|
+| **EC2 right-sizing** | 15-30% of compute | Use Compute Optimizer recommendations, downsize over-provisioned instances | Low |
+| **Savings Plans** | 20-40% of compute | Commit to 1-year Compute Savings Plan for baseline usage | Low |
+| **Graviton migration** | 20% of compute | Migrate to Graviton (arm64) instances — same performance, 20% cheaper | Medium |
+| **S3 lifecycle rules** | 30-60% of storage | IA after 30d, Glacier after 90d, abort incomplete uploads | Low |
+| **Aurora right-sizing** | 15-25% of database | Scale down dev/staging to t3.medium, use Aurora Serverless v2 for variable workloads | Medium |
+| **Reserved DB instances** | 30-40% of database | 1-year reserved instances for prod Aurora | Low |
+| **Data transfer** | 20-40% of transfer | CloudFront for public content, VPC endpoints for S3/DynamoDB | Medium |
+| **Dev/staging schedules** | 60-70% of non-prod | Shut down non-prod evenings/weekends via Instance Scheduler | Low |
+| **Unused resources** | 5-10% total | Delete unattached EBS volumes, unused EIPs, old snapshots | Low |
+
+### Expected Savings (on $50K/month)
+
+| Optimization | Monthly Savings |
+|-------------|----------------|
+| Right-sizing + Graviton | $6,000 |
+| Savings Plans (compute) | $4,000 |
+| Non-prod scheduling | $3,000 |
+| S3 lifecycle + cleanup | $1,500 |
+| Data transfer optimization | $1,000 |
+| Unused resource cleanup | $500 |
+| **Total** | **$16,000 (32%)** |
+
+---
+
 ## Scenario Summary
 
 | Scenario | Key Services | Key Pattern |
@@ -838,6 +1351,17 @@ graph TB
 | IoT Analytics | IoT Core, Kinesis, Flink, Timestream, S3 | Edge ingestion, stream + batch analytics |
 | Healthcare (HIPAA) | KMS, CloudTrail, Config, Aurora, S3 Object Lock | Encryption everywhere, immutable audit trail |
 | E-Commerce Orders | SQS, Step Functions, EventBridge, DynamoDB | Saga pattern, exactly-once payment, event-driven |
+| **DB CPU Troubleshooting** | **Aurora, Performance Insights, CloudWatch** | **Investigate → Identify → Fix → Prevent** |
+| **EC2 to EKS Migration** | **EKS, ALB, ECR, CodePipeline** | **Strangler fig, weighted routing, canary** |
+| **Lambda Timeout Debugging** | **Lambda, X-Ray, CloudWatch, SQS** | **Trace → Identify bottleneck → Fix → Monitor** |
+| **S3 Cost Investigation** | **S3, CUR, CloudWatch, Lifecycle** | **CUR analysis → Root cause → Lifecycle rules** |
+| **Security Incident Response** | **GuardDuty, EventBridge, Step Functions** | **Detect → Contain → Collect → Notify → Recover** |
+| **Multi-Account CI/CD** | **CodePipeline, CodeBuild, EKS, ECR** | **Cross-account roles, canary deploy, approval gates** |
+| **DynamoDB Throttling** | **DynamoDB, CloudWatch, Auto Scaling** | **Metrics → Pattern → Hot partition fix** |
+| **Accidental Deletion Recovery** | **DynamoDB, PITR, AWS Backup, SCP** | **Restore → Verify → Prevent recurrence** |
+| **Blue-Green with Schema Change** | **ALB, EC2, Aurora** | **Expand-contract schema, weighted routing** |
+| **Region Outage Playbook** | **Route 53, Aurora Global, ASG** | **Detect → Decide → Failover → Verify** |
+| **Cost Optimization** | **Compute Optimizer, CUR, Savings Plans** | **Analyze → Right-size → Commit → Schedule** |
 
 ---
 

@@ -323,6 +323,20 @@ Step-by-step: (1) Enable CUR in Billing console — deliver hourly, Parquet form
 
 Most organizations are at Level 1-2. The goal is Level 3-4 where cost is a first-class engineering concern. The transition from Level 2 to Level 3 requires executive sponsorship, a dedicated FinOps practice, and tooling automation.
 
+## Scenario-Based Questions
+
+### S1: Your AWS bill is $80K/month and leadership demands a 25% reduction in 30 days. Where do you start?
+
+**A:** Focus on the **three biggest quick wins** (no architectural changes): (1) **Non-production scheduling** — shut down dev/staging EC2, RDS, and EKS nodes evenings/weekends with Instance Scheduler. Saves 65% of non-prod compute (~$8K/month if non-prod is 20% of spend). (2) **Unused resources** — delete unattached EBS volumes, unused Elastic IPs ($3.60/month each), old snapshots, idle load balancers. AWS Trusted Advisor lists these. Typically saves 5-10% (~$5K). (3) **Savings Plans** — purchase 1-year Compute Savings Plan covering 70% of steady-state EC2/Fargate/Lambda usage. Saves 20-30% on committed compute (~$7K). Total: ~$20K/month (25%). For the next phase: right-size with Compute Optimizer, migrate to Graviton, optimize S3 lifecycle rules.
+
+### S2: Your S3 costs quadrupled after enabling versioning for compliance. How do you manage costs without disabling versioning?
+
+**A:** Versioning is required for compliance, but noncurrent versions accumulate silently. (1) **Lifecycle rule for noncurrent versions** — expire noncurrent versions after 30-90 days (compliance-approved retention period). This is the #1 fix. (2) **Transition noncurrent to cheaper storage** — move noncurrent versions to Glacier Instant Retrieval after 7 days (68% cheaper, still accessible). (3) **Abort incomplete multipart uploads** — add lifecycle rule to clean up after 7 days. (4) **S3 Inventory** — run weekly to analyze storage distribution by version and storage class. (5) **S3 Storage Lens** — dashboard showing cost breakdown by bucket, prefix, storage class, and version status. (6) **Delete markers** — lifecycle rule to remove expired delete markers (they're zero-byte but counted as objects).
+
+### S3: Your team uses 50 different Lambda functions. The serverless bill is $15K/month and growing. How do you optimize?
+
+**A:** (1) **Memory/power tuning** — use AWS Lambda Power Tuning (Step Functions tool) on each function. Many are over-allocated. Reducing memory from 1024MB to 512MB halves cost if execution time doesn't increase significantly. (2) **ARM64/Graviton** — change architecture from x86 to arm64. 20% cheaper per ms, often faster. One-line change in the function config. (3) **Duration optimization** — profile with X-Ray. Common wins: lazy-load SDKs, connection reuse (keep DB connections outside handler), reduce package size for faster cold starts. (4) **Provisioned Concurrency audit** — if set but usage is low, you're paying for idle. Only use for latency-sensitive functions. (5) **Batch processing** — if functions process SQS messages one-by-one, increase batch size to 10. One invocation processes 10 messages instead of 10 invocations. (6) **Step Functions Express** — if using Standard workflows for short tasks, Express is 10-20x cheaper.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

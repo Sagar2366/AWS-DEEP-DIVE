@@ -527,6 +527,20 @@ graph TD
     APPSYNC -.->|"Subscription"| WS["WebSocket<br/>Push to subscribed<br/>clients on mutation"]
 ```
 
+## Scenario-Based Questions
+
+### S1: Your Lambda function processes images uploaded to S3. During peak hours, some images aren't processed for 10+ minutes. What's wrong?
+
+**A:** Likely hitting **Lambda concurrency limits**. Default is 1,000 concurrent executions per region across ALL functions. During peak, other functions may be consuming the pool. Investigation: (1) Check CloudWatch `Throttles` metric — if >0, you're hitting limits. (2) Check `ConcurrentExecutions` vs account limit. Fix: (1) **Request limit increase** to 3,000+. (2) Set **reserved concurrency** on this function (e.g., 200) to guarantee capacity. (3) Add an **SQS queue** between S3 and Lambda — S3 triggers write to SQS, Lambda polls from SQS. This adds buffering and automatic retry (S3 events can be lost if Lambda is throttled). (4) If processing takes >15 min, switch to **Fargate** with SQS.
+
+### S2: You built a serverless API (API Gateway + Lambda + DynamoDB) that works in dev but returns 502 errors under load in production. How do you debug?
+
+**A:** 502 from API Gateway = Lambda execution error. (1) **CloudWatch Logs** — check Lambda logs for errors. Common causes: DynamoDB throttling (`ProvisionedThroughputExceededException`), timeout (default 3s in API Gateway integration), or unhandled exceptions. (2) **X-Ray traces** — enable tracing to see where time is spent (Lambda init vs DynamoDB call vs external API). (3) **Lambda timeout** — if processing takes >29s (API Gateway max timeout), you'll get 502. Solution: optimize or go async (return 202, process in background). (4) **Cold starts** — under load, new Lambda instances spin up with 1-3s init time. Use provisioned concurrency for latency-sensitive APIs. (5) **DynamoDB** — switch to on-demand mode if provisioned capacity is the bottleneck.
+
+### S3: Your Step Functions workflow orchestrates 5 microservices. One service is unreliable (fails 20% of the time). How do you make the workflow resilient?
+
+**A:** (1) **Retry with backoff** — configure the failing step with `Retry`: `IntervalSeconds: 2, MaxAttempts: 3, BackoffRate: 2.0`. This handles transient failures. (2) **Catch and compensate** — add `Catch` block that routes to a compensation path (undo previous steps). (3) **Circuit breaker** — use a Lambda that checks DynamoDB for recent failure count. If >50% failures in 5 min, skip the step and use a fallback. (4) **Timeout** — set `TimeoutSeconds` on the task to avoid hanging forever. (5) **DLQ on the failing service** — if the service is SQS-triggered, configure DLQ for messages that fail 3x. (6) **Long-term** — the unreliable service needs to be fixed (the root cause), but these patterns keep the workflow running while that happens.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

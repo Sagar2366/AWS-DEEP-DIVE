@@ -461,6 +461,20 @@ Choosing between VPN, Direct Connect, or a combined approach depends on bandwidt
 5. **Connecting to multiple VPCs/Regions?** Use Direct Connect Gateway (multi-Region over one DX circuit) + Transit Gateway (hub for multiple VPCs).
 6. **Budget-constrained but need reliability?** VPN with two connections to different AZs; consider accelerated VPN for better performance.
 
+## Scenario-Based Questions
+
+### S1: Users in Asia report your US-hosted application is slow (2-3 second load times). How do you reduce latency?
+
+**A:** (1) **CloudFront** — distribute static assets and cache API responses at edge locations in Asia. Reduces latency from 200ms+ to <50ms for cached content. (2) **Global Accelerator** — for non-cacheable dynamic content, GA routes traffic over AWS's backbone network instead of the public internet, reducing latency by 30-60%. (3) **Regional deployment** — if latency is still unacceptable, deploy a read replica or full stack in ap-southeast-1 (Singapore). Use Route 53 latency-based routing to direct users to the nearest region. (4) **Aurora Global Database** — for database reads, add a secondary region in Asia with <1s replication lag. (5) **Optimize payload** — compress responses (gzip/brotli), minimize API calls, implement pagination.
+
+### S2: Two VPCs need to communicate, but they have overlapping CIDR ranges (both use 10.0.0.0/16). What are your options?
+
+**A:** Overlapping CIDRs prevent VPC peering and Transit Gateway. Options: (1) **PrivateLink** — create an NLB in VPC-B exposing the target service, create a VPC endpoint in VPC-A that connects to it. Traffic flows over AWS backbone, no CIDR conflict. Best for service-to-service communication. (2) **ALB with private IP** — if you only need HTTP, use a private ALB in VPC-B and connect via PrivateLink. (3) **Re-IP one VPC** — if feasible, migrate one VPC to a non-overlapping CIDR (e.g., 172.16.0.0/16). This is the cleanest long-term solution but requires downtime. (4) **NAT-based routing** — use NAT instances to translate addresses. Complex and fragile — avoid if possible. **Best answer**: PrivateLink for immediate needs, plan CIDR re-architecture for the long term.
+
+### S3: Your company needs to connect an on-premises data center to AWS with strict security requirements (no internet traffic). What do you design?
+
+**A:** **AWS Direct Connect + VPN backup**. (1) **Primary**: 1 Gbps or 10 Gbps Direct Connect via a partner (Equinix, Megaport). Private VIF for VPC access, transit VIF for Transit Gateway. Traffic never touches the internet. (2) **Encryption**: DX is not encrypted by default — add a Site-to-Site VPN over the DX connection for IPsec encryption (required for compliance). (3) **Redundancy**: two DX connections at different locations (different buildings/providers) for resiliency. (4) **Backup**: Site-to-Site VPN over internet as failover if both DX circuits fail. (5) **DNS**: Route 53 Resolver endpoints for hybrid DNS resolution between on-prem and AWS. (6) **Architecture**: Transit Gateway as the central hub connecting DX, VPN, and all VPCs.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

@@ -543,6 +543,22 @@ Choosing the right migration method depends on data volume, network bandwidth, a
 
 ### S3 Data Protection Deep Dive
 
+## Scenario-Based Questions
+
+### S1: Your S3 bucket has 50TB of data and costs are climbing. Users access recent files frequently but rarely touch anything older than 30 days. How do you optimize?
+
+**A:** Implement **lifecycle rules**: (1) Transition to S3 Standard-IA after 30 days (40% cheaper, same durability). (2) Transition to Glacier Instant Retrieval after 90 days (68% cheaper, millisecond access). (3) Transition to Glacier Deep Archive after 365 days (95% cheaper). (4) **Abort incomplete multipart uploads** after 7 days — orphaned parts silently accumulate. (5) **Expire noncurrent versions** after 30 days if versioning is enabled. (6) Enable **S3 Intelligent-Tiering** for objects with unknown access patterns (only for objects >128 KB to avoid monitoring fees). Expected savings: 40-60% of storage costs.
+
+### S2: An S3 bucket was accidentally made public and a news outlet discovered it. Walk through your incident response.
+
+**A:** **Immediate (5 min)**: (1) Enable **S3 Block Public Access** at the account level — this overrides any bucket policy. (2) Check S3 server access logs and CloudTrail data events for who accessed the bucket while public. (3) Notify security team and legal. **Investigation**: (4) Use Macie to classify what data was exposed (PII, credentials, internal docs). (5) Check CloudTrail for who changed the bucket policy to public — was it a human or IaC? (6) Assess blast radius: how long was it public, what was downloaded? **Prevention**: (7) SCP to deny `s3:PutBucketPolicy` with public access conditions. (8) AWS Config rule `s3-bucket-public-read-prohibited` with auto-remediation. (9) Enable GuardDuty S3 protection for anomalous access pattern detection.
+
+### S3: You need to migrate 100TB from on-premises NAS to S3 within 2 weeks. Your internet bandwidth is 1 Gbps. How?
+
+**A:** 1 Gbps = ~10 TB/day theoretical max (~7 TB practical). 100TB would take ~14 days — tight but possible with **AWS DataSync**. However, this saturates your bandwidth for 2 weeks. Better approach: (1) Order **AWS Snowball Edge** (80TB per device) — order 2 devices, load in parallel, ship to AWS. Total time: ~10 days (3 days shipping + 3 days loading + 3 days return + 1 day import). (2) Simultaneously start **DataSync** for the most critical/recent data so it's available immediately. (3) After Snowball import completes, run DataSync in incremental mode to sync any changes made during the migration window. This hybrid approach ensures both speed and data consistency.
+
+### S3 Data Protection Deep Dive
+
 Understanding the interplay between Object Lock modes, encryption options, and event-driven architectures is critical for designing compliant, secure, and reactive storage systems.
 
 #### Object Lock: Governance vs Compliance Mode

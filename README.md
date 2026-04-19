@@ -1,6 +1,6 @@
 # AWS-DEEP-DIVE
 
-A comprehensive, deep-dive guide to AWS Cloud services with architecture diagrams, real-world scenarios, and 398+ Q&A pairs — designed for engineers preparing for AWS Solutions Architect, DevOps, and Cloud Engineer interviews.
+A comprehensive, deep-dive guide to AWS Cloud services with architecture diagrams, real-world scenarios, and 398+ Q&A pairs and 59 real-world scenario questions — designed for engineers preparing for AWS Solutions Architect, DevOps, and Cloud Engineer interviews.
 
 ## How to Use This Repo
 

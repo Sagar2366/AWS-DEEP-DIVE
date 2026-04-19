@@ -459,6 +459,20 @@ Traditional network security relies on a perimeter — once you're "inside" the 
 - **PrivateLink**: Keeps traffic between services on the AWS private network, eliminating exposure to the public internet even for cross-account access.
 - **AWS Nitro Enclaves**: Provides isolated compute environments for processing highly sensitive data with cryptographic attestation, ensuring even AWS operators cannot access the data.
 
+## Scenario-Based Questions
+
+### S1: An engineer's AWS access keys are found in a public GitHub repo. Walk through your incident response.
+
+**A:** **Immediate (5 min)**: (1) Disable the exposed keys in IAM (don't delete — preserve for forensics). (2) Check CloudTrail for API calls made with those keys: new IAM users, EC2 launches (crypto mining), S3 data access, SG changes. (3) Revoke active sessions with deny-all inline policy. **Investigation (30 min)**: (4) Query CloudTrail Lake for all events with the compromised key ID. (5) Check for persistence: new IAM users, new access keys, Lambda backdoors. (6) Check for exfiltration: S3 GetObject, RDS snapshots shared externally. **Remediation**: (7) Delete exposed keys, rotate all creds. (8) Terminate unauthorized resources. (9) Enable GuardDuty. (10) Preventive controls: no long-lived keys (use Identity Center), git-secrets pre-commit hook.
+
+### S2: You're designing IAM for a 50-person team with dev/staging/prod accounts. How do you structure access?
+
+**A:** Use **AWS Organizations + IAM Identity Center**. (1) **Separate accounts** per environment plus shared-services. (2) **Permission Sets**: `DevAdmin` (full dev), `StagingReadOnly`, `ProdOperator` (read + restart), `ProdAdmin` (SRE lead + on-call only). (3) **SCPs on prod OU**: deny `iam:CreateUser`, deny unauthorized regions, deny disabling CloudTrail/GuardDuty. (4) **Break-glass**: separate `EmergencyAccess` permission set requiring MFA + manager approval, logged and alarmed. (5) **No long-lived access keys** — all CLI via `aws sso login`. (6) **Tag-based ABAC** in dev: engineers manage only resources tagged with their team.
+
+### S3: Security audit reveals 200+ IAM policies with `Action: *` or `Resource: *`. How do you fix without breaking production?
+
+**A:** (1) **Prioritize** — IAM Access Analyzer identifies policies granting external access or unused permissions. Start with production roles. (2) **Generate least-privilege** — Access Analyzer analyzes 90 days of CloudTrail and generates a policy with only actions actually used. (3) **Phased rollout**: attach new restrictive policy alongside old one. Monitor for access denied errors over 30 days. (4) **Permissions Boundaries** as a safety net — cap maximum permissions while iterating on individual policies. (5) **Prevent recurrence** — AWS Config rule `iam-policy-no-statements-with-admin-access` blocks new wildcard policies.
+
 ### ABAC vs. RBAC Patterns
 
 **RBAC example (traditional):**

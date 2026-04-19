@@ -463,6 +463,20 @@ Data governance on AWS spans access control, auditing, quality, and lineage.
 - Use **Glue Schema Registry** for schema versioning — track how schemas evolve over time
 - Tag data with classification (PII, sensitive, public) using **Macie** for automated discovery or **Lake Formation LF-Tags** for manual classification
 
+## Scenario-Based Questions
+
+### S1: Your Kinesis Data Stream has 10 shards but consumers are falling behind (iterator age increasing). What do you do?
+
+**A:** Iterator age increasing = consumers can't keep up with producers. (1) **Check shard metrics** — `IncomingRecords` and `IncomingBytes` per shard. If uneven, you have hot shards (bad partition key). Fix the key. (2) **Scale shards** — split hot shards or increase total shard count. Rule of thumb: 1 shard = 1 MB/s in, 2 MB/s out. (3) **Enhanced Fan-Out** — if multiple consumers share the same shards, each gets only 2 MB/s total. EFO gives each consumer a dedicated 2 MB/s pipe per shard. (4) **Optimize consumer** — batch processing, reduce per-record processing time, parallelize within shards. (5) **Switch to Lambda consumer** — Lambda auto-scales with shard count and handles checkpointing. (6) **If extreme** — consider MSK (Kafka), which supports faster partitions and consumer groups natively.
+
+### S2: Leadership wants real-time dashboards for business metrics. Data comes from DynamoDB, Aurora, and S3. How do you design the analytics pipeline?
+
+**A:** (1) **DynamoDB → zero-ETL to Redshift** — automatic near-real-time replication, no pipeline code. (2) **Aurora → zero-ETL to Redshift** — similarly automatic. (3) **S3 data lake → Redshift Spectrum** — query S3 directly from Redshift without loading. (4) **QuickSight** connected to Redshift — serverless BI dashboards with SPICE in-memory engine for sub-second response. (5) For truly real-time (<5s): DynamoDB Streams → Lambda → OpenSearch → Kibana dashboards. (6) **Alternative low-cost stack**: skip Redshift entirely — DynamoDB export to S3 + Aurora export to S3 → Athena → QuickSight. Cheaper but not real-time (hourly/daily refresh). Choose based on latency requirements: seconds (Streams + OpenSearch), minutes (zero-ETL + Redshift), hours (S3 + Athena).
+
+### S3: Your Glue ETL job processes 5TB daily but takes 8 hours and costs $200/run. How do you optimize?
+
+**A:** (1) **Check DPU utilization** — if Glue workers are underutilized, you're over-provisioned. Reduce worker count. If they're maxed, the job needs optimization. (2) **Partitioning** — read only needed partitions (e.g., `year=2026/month=04`) instead of full table scan. (3) **Pushdown predicates** — enable predicate pushdown to filter at source (S3/catalog) before loading into memory. (4) **Output format** — write Parquet or ORC (columnar) instead of JSON/CSV. 80% smaller, 10x faster downstream. (5) **Glue job bookmarks** — process only new/changed data since last run (incremental ETL). (6) **Flex execution** — run at off-peak times for lower cost (Glue Flex is up to 34% cheaper). (7) **Consider Glue Auto Scaling** — automatically adjusts workers during execution. Expected improvement: 8 hours → 2 hours, $200 → $60.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

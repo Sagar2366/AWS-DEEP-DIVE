@@ -221,6 +221,20 @@ graph TB
 
 **A:** SCPs and IAM policies serve fundamentally different purposes in governance. **IAM policies** grant or deny permissions to specific principals (users, roles, groups) and are the primary mechanism for fine-grained access control. **SCPs** set the maximum available permissions for an entire AWS account or organizational unit — they act as a guardrail or ceiling and never grant permissions themselves. For example, an SCP that denies all actions in the ap-southeast-1 region means that no IAM policy in any account under that OU can override it, regardless of how permissive the IAM policy is. Use SCPs for organization-wide guardrails (allowed regions, disallowed services, mandatory encryption). Use IAM policies for granting specific permissions to specific identities. Together, the effective permission is the intersection of SCP + IAM policy + permissions boundary.
 
+## Scenario-Based Questions
+
+### S1: Your startup is launching an MVP with 2 developers. How do you choose between EC2, ECS, or Lambda?
+
+**A:** Choose **Lambda + API Gateway + DynamoDB** (fully serverless). Reasoning: (1) Zero infrastructure management — no patching, scaling, or capacity planning. (2) Pay-per-request — costs near zero at low traffic. (3) Built-in auto-scaling from 0 to millions of requests. (4) Focus 100% of dev time on features, not ops. Skip EC2 (too much ops overhead) and ECS (container orchestration is overkill). Reassess when you hit Lambda limitations (>15 min execution, persistent connections, >10 GB memory). At that point, Fargate is the next step.
+
+### S2: Your company operates in the EU and must comply with GDPR. A customer requests complete data deletion. How do you handle this across AWS services?
+
+**A:** GDPR "right to erasure" requires deleting all customer data everywhere. (1) **Data inventory** — use Macie to discover PII across S3, maintain a catalog mapping customer IDs to storage locations. (2) **DynamoDB** — query all items with `PK=CUSTOMER#<id>` and batch delete. (3) **S3** — delete objects and all versions (versioned buckets retain deleted objects). (4) **RDS/Aurora** — run DELETE queries. (5) **CloudWatch Logs** — can't delete individual entries; set retention to comply with data minimization. (6) **Backups** — document that they're encrypted and auto-expire. Build an automated **data deletion pipeline** via Step Functions that orchestrates deletion across all services.
+
+### S3: Your company acquired another company on Azure. Leadership wants both to coexist. How do you architect hybrid multi-cloud connectivity?
+
+**A:** (1) **Network** — Direct Connect + Azure ExpressRoute, both at the same colo (e.g., Equinix). Or VPN mesh as a cheaper alternative. (2) **Identity** — federate both clouds to a single IdP (Okta, Azure AD). IAM Identity Center for AWS. (3) **DNS** — Route 53 for external, forward internal zones between Route 53 Resolver and Azure Private DNS. (4) **Data** — avoid cross-cloud transfers for latency-sensitive workloads. S3 as primary data lake, sync Azure Blob via DataSync. (5) **Monitoring** — Datadog or Grafana Cloud for unified observability. (6) **IaC** — Terraform for both clouds. Plan to consolidate over 12-18 months rather than running hybrid permanently.
+
 ## Deep Dive Notes
 
 ### Well-Architected Framework Lenses

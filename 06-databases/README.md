@@ -339,6 +339,20 @@ Aurora decouples compute from storage. The **storage layer** is a distributed, f
 
 The decision is driven by access patterns, scale requirements, and consistency needs. **Choose SQL (RDS/Aurora)** when: you need complex joins across tables, ACID transactions spanning multiple entities, flexible ad-hoc querying (business analysts writing arbitrary SQL), strong referential integrity, or your data model is highly relational. **Choose NoSQL (DynamoDB)** when: you need single-digit millisecond latency at any scale, your access patterns are well-defined and limited, you have massive write throughput requirements, your data is denormalized or document-oriented, or you need global replication (Global Tables). **Hybrid approach**: Many production architectures use both — DynamoDB for the hot path (user sessions, shopping carts, real-time APIs) and Aurora for the cold path (reports, analytics, complex queries). Common anti-patterns: using DynamoDB when you need ad-hoc queries (fight against its strengths), using RDS when you need horizontal write scaling (will hit single-node limits), or choosing based on technology preference rather than workload requirements.
 
+## Scenario-Based Questions
+
+### S1: Your Aurora MySQL cluster's read replica lag has jumped from 5ms to 500ms. Users see stale data. How do you investigate?
+
+**A:** (1) **CloudWatch metrics** — check `AuroraReplicaLag` and `AuroraReplicaLagMaximum`. Correlate with `CPUUtilization` on the writer. (2) **Writer overload** — heavy write workloads generate more WAL records for replicas to apply. Check `DMLThroughput` and `CommitThroughput`. If writer CPU is high, the fix is scaling up the writer or optimizing write queries. (3) **Replica resource contention** — if the replica itself is CPU-bound (heavy read queries), it falls behind on applying writes. Solution: add more replicas to distribute read load, or use reader endpoint with connection pooling. (4) **Long-running queries on replica** — a large SELECT blocks WAL apply. Enable `innodb_kill_idle_transaction` or kill long queries. (5) **Network** — unlikely with Aurora (shared storage), but check if replica is in a different AZ with high cross-AZ latency.
+
+### S2: Your DynamoDB table handles 10K writes/sec normally, but during a flash sale it spikes to 100K writes/sec and gets throttled. How do you handle this?
+
+**A:** (1) **Switch to on-demand mode** before the sale — handles any traffic level instantly but costs 5-7x more than provisioned. Switch back after the sale. (2) **Pre-warm with scheduled scaling** — if you know the sale time, increase provisioned capacity to 100K WCU 30 minutes before (auto-scaling is too slow for 10x spikes). (3) **Write sharding** — if throttling is on specific items (hot products), add random suffix to PK (`PRODUCT#123#<1-10>`) to spread writes across partitions. (4) **SQS buffer** — put an SQS queue in front of DynamoDB. Accept all orders into SQS and drain to DynamoDB at sustainable rate. Customers get instant confirmation, processing is async. (5) **DAX write-through** — not for write scaling, but DAX can cache reads to reduce overall table pressure.
+
+### S3: Your team wants to use DynamoDB for a new feature, but the data is highly relational with complex JOINs. How do you decide?
+
+**A:** **Ask three questions**: (1) Are your access patterns well-defined and stable? DynamoDB requires knowing all queries upfront. If analysts need ad-hoc SQL, use Aurora. (2) Do you need single-digit millisecond latency at scale? DynamoDB wins. If sub-100ms is fine, Aurora works. (3) Do queries involve >2 table JOINs? DynamoDB has no native joins — you'd denormalize everything or make multiple queries. **Recommendation**: If the feature has 3-5 fixed access patterns and needs scale → DynamoDB. If it has complex relationships and evolving queries → Aurora. **Hybrid**: use DynamoDB for the hot path (real-time API) and Aurora for complex queries (reports, analytics). Sync via DynamoDB Streams → Lambda → Aurora.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

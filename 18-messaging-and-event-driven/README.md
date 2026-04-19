@@ -460,6 +460,20 @@ Key metrics to alarm on:
 - **ApproximateAgeOfOldestMessage** on main queue > threshold (processing stalled)
 - **NumberOfMessagesSent** to DLQ > N/hour (systemic failure)
 
+## Scenario-Based Questions
+
+### S1: Your SQS queue has 500,000 messages backed up and growing. Consumers are running but can't keep up. How do you handle this?
+
+**A:** (1) **Scale consumers** — if using Lambda, increase reserved concurrency (Lambda auto-scales with SQS but respects concurrency limits). If using EC2/ECS, add more consumer instances. (2) **Check for poison messages** — if consumers fail and retry the same messages, they block new messages. Check DLQ for messages. Reduce `maxReceiveCount` to 2-3 so bad messages move to DLQ faster. (3) **Increase batch size** — process 10 messages per invocation instead of 1. (4) **Optimize consumer code** — batch DynamoDB writes, parallelize HTTP calls, reduce per-message processing time. (5) **Temporary burst** — spin up extra consumer capacity to drain the backlog, then scale back. (6) **Long-term** — if this happens regularly, the architecture needs redesign: add more consumers, use Kinesis for higher throughput, or pre-filter messages with EventBridge so consumers only get relevant messages.
+
+### S2: You need to send the same event to 3 different microservices, but each service needs a different subset of the event data. How do you design this?
+
+**A:** **SNS + SQS fan-out with filter policies**. (1) Publish the full event to an SNS topic. (2) Each microservice has its own SQS queue subscribed to the topic. (3) **SNS filter policies** — each subscription has a filter that only delivers relevant messages. Example: order events with `{"type": "premium"}` go to the priority queue, `{"region": "EU"}` to the compliance queue, and all events go to the analytics queue. (4) **Input transformation** — if services need different data shapes, use EventBridge instead of SNS. EventBridge input transformers reshape the event before sending to each target. (5) **Benefits**: services are decoupled, each has independent retry/DLQ, adding a new consumer is a new subscription (no code changes).
+
+### S3: Your EventBridge rule was accidentally deleted and events from the past 3 hours are lost. How do you recover?
+
+**A:** (1) **Check if Archive was enabled** — if EventBridge Archive is on for that event bus, all events are stored. Use **Replay** to reprocess the 3-hour window: specify start/end time and destination (the recreated rule). (2) **If no archive** — check CloudTrail for `PutEvents` API calls during the 3-hour window. You can see event payloads in CloudTrail data events (if enabled). Manually replay them via `aws events put-events`. (3) **Source recovery** — if events originated from DynamoDB Streams or S3, the source may still have the data. Re-trigger processing from the source. (4) **Prevention**: (a) Always enable Archive on production event buses. (b) Protect EventBridge rules with IAM policies — deny `events:DeleteRule` for non-admin roles. (c) Manage rules via IaC (Terraform/CDK) so deleted rules can be re-applied in seconds.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

@@ -488,6 +488,20 @@ graph LR
 | Purchase: Spot Strategies | capacity-optimized (safest), price-capacity-optimized (recommended), diversified (long-running), lowest-price (cheapest/riskiest) |
 | Dedicated Host vs Instance | Host = physical server, BYOL, socket visibility. Instance = hardware isolation, no server control |
 
+## Scenario-Based Questions
+
+### S1: EC2 instances hit 90% CPU daily 9-11 AM, then drop to 20%. How do you optimize?
+
+**A:** Predictable pattern — use **scheduled scaling + target tracking**. (1) **Scheduled scaling**: add 3x capacity at 8:45 AM, scale down at 11:30 AM. (2) **Target tracking** at 60% CPU as a safety net for unexpected spikes. (3) **Right-size**: if baseline is 20%, instances may be oversized. Use Compute Optimizer. (4) **Graviton**: switch m5.xlarge → m7g.xlarge for 20% cost savings. (5) **Warm pool**: pre-initialized instances in ASG for instant scale-out with no boot delay.
+
+### S2: Your app behind an ALB returns 504 Gateway Timeouts intermittently. How do you troubleshoot?
+
+**A:** 504 = ALB couldn't get a response within timeout. (1) **ALB access logs** — check `target_processing_time`. If close to idle timeout (60s), backend is too slow. (2) **Target health** — unhealthy targets stay in rotation briefly during deregistration. (3) **App logs** — long queries, external API timeouts, memory exhaustion. (4) **Keep-alive mismatch** — if backend closes connections before ALB idle timeout → 504. Fix: backend keep-alive > ALB idle timeout (120s vs 60s). (5) **Security groups** — verify ALB can reach targets on health check port.
+
+### S3: You need a 3-hour batch job processing 10TB weekly. Most cost-effective compute?
+
+**A:** **Spot Instances with checkpointing**. (1) Spot Fleet with `capacity-optimized` strategy across 4-5 instance types. (2) Checkpoint to S3 every 15 min for resumability. (3) ASG with 80/20 Spot/On-Demand mix. (4) Cost: On-Demand ~$20/run vs Spot ~$6/run (**70% savings**). (5) Better option: **AWS Batch** — manages Spot fleet, retries, and scheduling automatically.
+
 ---
 
 [← Previous: IAM & Security](../02-iam-and-security/) | [Next: Storage →](../04-storage/)

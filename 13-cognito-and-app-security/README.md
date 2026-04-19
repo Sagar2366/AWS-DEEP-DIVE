@@ -315,6 +315,20 @@ WAF rules in a Web ACL are evaluated in **priority order** (lowest number first)
 
 Cognito Advanced Security (add-on) provides: (1) **Adaptive Authentication** — risk-based MFA challenges. Cognito evaluates each sign-in for risk signals (new device, unusual location, impossible travel, known bad IP). Low risk = allow. Medium risk = challenge (MFA). High risk = block. This reduces friction for trusted users while protecting against attacks. (2) **Compromised Credential Detection** — Cognito checks username/password combinations against a database of known leaked credentials (from public breaches). If a match is found, the user is forced to change their password. (3) **Advanced security metrics** — CloudWatch metrics for risk levels, compromised credentials, and adaptive authentication events. Enable advanced security in the User Pool settings. It adds $0.050 per MAU (monthly active user) to the cost.
 
+## Scenario-Based Questions
+
+### S1: Your API is getting hit by credential stuffing attacks — thousands of login attempts per minute with leaked username/password pairs. How do you defend?
+
+**A:** Multi-layer defense: (1) **WAF rate limiting** — attach WAF to API Gateway/ALB with a rate-based rule (e.g., max 100 requests per IP per 5 min on `/login`). (2) **Cognito Advanced Security** — enable adaptive authentication. Cognito detects anomalous sign-ins (new device, impossible travel) and challenges with MFA or blocks. (3) **Compromised credential check** — Cognito checks passwords against known breach databases and forces password change. (4) **CAPTCHA** — AWS WAF CAPTCHA action on the login endpoint after 3 failed attempts. (5) **Account lockout** — Cognito custom Lambda trigger (Pre Authentication) that checks DynamoDB for failed attempt count and blocks after 5 failures for 30 min. (6) **Long-term** — enforce MFA for all users, implement passwordless auth (WebAuthn/passkeys via Cognito).
+
+### S2: You need to add authentication to a React SPA that calls a serverless API. Users should be able to sign in with Google, Apple, and email/password. Design the auth flow.
+
+**A:** Use **Cognito User Pool + Identity Pool**. (1) **User Pool** — enable Google and Apple as social identity providers, plus email/password sign-up. Cognito handles OAuth flows, token issuance, and user management. (2) **Hosted UI or Amplify** — use Cognito's hosted UI for login (quick) or Amplify UI components in React (customizable). (3) **Token flow** — after login, Cognito returns ID token + access token + refresh token. Store tokens in memory (not localStorage — XSS risk). (4) **API Gateway** — attach a Cognito authorizer. API Gateway validates the JWT on every request (no Lambda needed for auth). (5) **Identity Pool** — if the SPA needs direct AWS access (e.g., S3 uploads), exchange Cognito tokens for temporary AWS credentials via Identity Pool. (6) **Token refresh** — use the refresh token (30 days) to get new access tokens (1 hour) silently.
+
+### S3: A WAF rule is blocking legitimate users in a specific country. How do you investigate and fix without disabling security?
+
+**A:** (1) **WAF logs** — enable logging to S3 via Kinesis Firehose. Filter for BLOCK actions from the affected country's IP ranges. Identify which rule is triggering (rule ID in the log). (2) **Common cause** — a geo-match rule blocking the country, or a rate-based rule triggered by a corporate proxy (many users behind one IP). (3) **Fix for geo-block** — if the rule is intentional, create a scope-down statement that exempts authenticated users (check for a valid auth header). (4) **Fix for rate-limit** — increase the rate threshold for known corporate IP ranges using an IP set exception. (5) **Use WAF count mode** — switch the rule from BLOCK to COUNT temporarily. Monitor for 24 hours. Refine the rule to reduce false positives, then re-enable BLOCK. (6) **Long-term** — use WAF Bot Control managed rule group which distinguishes legitimate bots/users from attackers more accurately.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

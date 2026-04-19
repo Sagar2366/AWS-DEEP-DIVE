@@ -655,6 +655,20 @@ A secure deployment pipeline implements checks at every stage to prevent vulnera
 5. **Secrets isolation** — never pass secrets as plaintext environment variables; reference Secrets Manager ARNs
 6. **Immutable artifacts** — once an image is built, tag it with the commit SHA; never overwrite tags like "latest" in production pipelines
 
+## Scenario-Based Questions
+
+### S1: A CloudFormation stack update fails and gets stuck in UPDATE_ROLLBACK_FAILED. How do you recover?
+
+**A:** This is one of the most dreaded CFN states. (1) **Identify the failing resource** — check stack events for the resource that failed rollback. Common causes: resource was manually deleted outside CFN, IAM permissions changed, or a resource dependency was modified. (2) **ContinueUpdateRollback with skip** — `aws cloudformation continue-update-rollback --stack-name X --resources-to-skip ResourceLogicalId`. This tells CFN to skip the problematic resource and continue rolling back everything else. (3) **Fix the underlying issue** — if the resource was deleted, recreate it manually with the same physical ID, then retry the rollback. (4) **Last resort** — delete the stack with `--retain-resources` for the problematic resource, then import it into a new stack. **Prevention**: never modify CFN-managed resources manually. Use drift detection to catch manual changes early.
+
+### S2: Your team pushes code to production and the deploy breaks the app. The rollback takes 30 minutes. How do you reduce rollback time to under 1 minute?
+
+**A:** (1) **Blue-green with ALB** — maintain two target groups. Deploy to green, smoke test, then switch ALB weighted routing from blue to green. Rollback = flip the weight back (seconds). (2) **Canary with CodeDeploy** — deploy to 10% of traffic, auto-rollback on CloudWatch alarm (error rate > 1%). Rollback is automatic and fast. (3) **Container image immutability** — tag images with git SHA, not "latest". Rollback = `kubectl set image deployment/X container=image:previous-sha` (seconds). (4) **Feature flags** — deploy code but control activation via AWS AppConfig. Rollback = toggle the flag off (instant, no deploy needed). (5) **Database migrations** — use expand/contract pattern so rollback never requires schema changes. **The key insight**: rollback should never require a new deployment — it should be a routing or configuration change.
+
+### S3: CloudWatch shows your application has occasional latency spikes but you can't correlate them to any single service. How do you find the root cause?
+
+**A:** This is a distributed tracing problem. (1) **Enable X-Ray** — instrument all services (Lambda, ECS, API Gateway). X-Ray shows a service map with latency percentiles per hop. (2) **Trace the p99** — filter traces by duration >2s to see only slow requests. X-Ray shows exactly which downstream call caused the delay. (3) **Common culprits**: cold starts (Lambda), connection pool exhaustion (RDS), DNS resolution spikes, or a downstream service with no timeout set. (4) **CloudWatch ServiceLens** — correlates X-Ray traces with CloudWatch metrics and logs in one view. (5) **Contributor Insights** — enable on DynamoDB or CloudWatch Logs to find the top contributors to latency (which API, which customer, which partition key). (6) **Synthetic monitoring** — CloudWatch Synthetics canaries run every 5 min to establish a baseline and alert on degradation before users notice.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

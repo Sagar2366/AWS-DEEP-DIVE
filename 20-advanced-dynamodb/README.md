@@ -432,6 +432,20 @@ Mitigation strategies for conflict-sensitive data:
 - **Write to one region** — use Global Tables for read scaling but funnel all writes through one region
 - **Application-level merge** — use DynamoDB Streams to detect conflicts and apply custom merge logic
 
+## Scenario-Based Questions
+
+### S1: Your DynamoDB table scan for a daily report takes 45 minutes and consumes all RCU, throttling production reads. How do you fix this?
+
+**A:** Full table scans are the #1 DynamoDB anti-pattern. (1) **Never scan in production** — scans read every item in the table (all partitions). (2) **Export to S3** — use DynamoDB Export to S3 (uses backup, zero RCU). Query with Athena for reports. (3) **GSI for the report query** — if the report filters by date or status, create a GSI with that as the key. Query the GSI instead of scanning. (4) **DynamoDB Streams → analytics** — stream changes to S3 via Firehose. Run reports on S3 data with Athena or Redshift. (5) **If scan is unavoidable** — use parallel scan with `TotalSegments` to speed it up, but with rate limiting (`Limit` parameter) to cap RCU consumption. Schedule during off-peak hours. (6) **Zero-ETL to Redshift** — automatic replication to Redshift for SQL analytics, no table scan needed.
+
+### S2: Your single-table DynamoDB design works for 5 access patterns, but a new feature requires a 6th that doesn't fit. What do you do?
+
+**A:** This is the real-world tension of single-table design. Options: (1) **Add a GSI** — if the new pattern can be served by a different key combination, add a GSI. You have up to 20. Overload the GSI key to serve multiple patterns. (2) **Denormalize differently** — duplicate data in a new item format that supports the pattern. More writes, but reads are efficient. (3) **Composite sort key** — restructure SK to include the new dimension (e.g., `STATUS#2026-04-19` becomes `STATUS#REGION#2026-04-19`). (4) **Accept a query + filter** — if the pattern is rare (admin/report), query a broader set and filter in application code. Less efficient but avoids schema changes. (5) **Separate table** — if the pattern is fundamentally different (full-text search, graph traversal), use the right tool: OpenSearch for search, Neptune for graphs. DynamoDB isn't the answer for every access pattern.
+
+### S3: Your Global Tables setup has users in US and EU. An EU user updates their profile, but when they're immediately redirected to a US-served page, they see stale data. How do you fix this?
+
+**A:** This is **read-after-write consistency across regions** — Global Tables is eventually consistent cross-region (typically <1s but not guaranteed). (1) **Region-affinity routing** — route each user to their home region for both reads and writes. EU users always hit eu-west-1. This eliminates cross-region consistency issues for most operations. (2) **Sticky sessions** — after a write, serve subsequent reads from the same region for 5 seconds (cookie or header-based routing in CloudFront/ALB). (3) **Optimistic UI** — after the profile update, the client displays the updated data locally without re-fetching from the server. The replication catches up in the background. (4) **Version check** — include a version number in the response. Client compares: if version is older than expected, retry the read after 1 second. (5) **Accept it** — for non-critical reads, eventual consistency is fine. Only apply fixes for user-facing flows where stale data causes confusion.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

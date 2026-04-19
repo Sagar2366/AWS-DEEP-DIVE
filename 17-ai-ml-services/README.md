@@ -367,6 +367,20 @@ Four pillars for production AI on AWS:
 
 **Governance** — Model Cards document intended use, limitations, and performance. Model Registry provides version control and approval gates. CloudTrail logs all API calls. For organizations, use SCPs to restrict which Bedrock models can be invoked (e.g., only allow approved models in production accounts). Establish an AI review board that approves new use cases before deployment.
 
+## Scenario-Based Questions
+
+### S1: Leadership wants to add a "chat with your documents" feature to the internal portal. Employees should ask questions about company policies, HR docs, and tech docs. How do you build it?
+
+**A:** **Bedrock Knowledge Bases (RAG)**. (1) **Document ingestion** — upload PDFs, Word docs, and web pages to S3. Bedrock Knowledge Bases automatically chunks, embeds, and indexes them into a vector store (Amazon OpenSearch Serverless or Pinecone). (2) **Query flow** — user asks a question → Bedrock retrieves relevant document chunks → sends them as context to Claude/Titan → returns an answer with source citations. (3) **Guardrails** — Bedrock Guardrails filter sensitive content (PII, profanity), block off-topic queries, and enforce grounding (answers must be based on retrieved documents, not hallucinated). (4) **Access control** — Cognito authentication, and S3 metadata tags to restrict which departments see which documents. (5) **Architecture**: API Gateway → Lambda → Bedrock RetrieveAndGenerate API. (6) **Cost**: Bedrock pricing is per-token (input + output). With caching and smart chunking, expect $0.01-0.05 per query.
+
+### S2: Your ML model in SageMaker works well in testing but predictions are degrading in production over the past month. What's happening?
+
+**A:** This is **model drift** — the production data distribution has shifted from the training data. (1) **Detect** — SageMaker Model Monitor continuously compares production inference data against a baseline (training data statistics). It reports data drift (feature distributions changed), model drift (prediction accuracy dropped), and bias drift. (2) **Investigate** — check which features drifted. Common causes: seasonal changes, new user demographics, upstream data schema changes, or a bug in the feature pipeline. (3) **Fix** — retrain the model on recent data. Use SageMaker Pipelines to automate: data collection → preprocessing → training → evaluation → deployment. (4) **Automate** — set up Model Monitor with CloudWatch alarms. When drift exceeds threshold → EventBridge triggers SageMaker Pipeline → auto-retrain and deploy if evaluation metrics pass. (5) **A/B testing** — use SageMaker inference variants to route 10% of traffic to the new model before full deployment.
+
+### S3: Your company wants to use GenAI but the legal team is concerned about data privacy — customer data must never leave your AWS account. How do you ensure this?
+
+**A:** (1) **Bedrock** — your data is NOT used to train foundation models. Prompts and responses are not stored by Bedrock (unless you enable logging). This is contractual via the AWS service terms. (2) **VPC endpoints** — create a PrivateLink endpoint for Bedrock so API calls never traverse the public internet. (3) **Guardrails** — configure Bedrock Guardrails to detect and mask PII (names, SSNs, emails) in both inputs and outputs before they reach the model. (4) **Encryption** — all data encrypted in transit (TLS) and at rest (KMS). Use customer-managed KMS keys for Knowledge Bases vector store. (5) **Logging** — enable CloudTrail and model invocation logging to S3 (encrypted) for audit compliance. (6) **Alternative**: for maximum control, fine-tune an open model (Llama) on SageMaker — the model runs entirely in your VPC, on your instances, with no external API calls.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

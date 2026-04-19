@@ -330,6 +330,20 @@ Most teams are at Level 1-2. Level 3-4 requires investment in runbook developmen
 
 For enterprise deployments: (1) **Resource Data Sync** — aggregate Inventory and Compliance data from all accounts into a central S3 bucket for unified reporting. (2) **Automation cross-account execution** — run runbooks in member accounts from the management account using delegated administration. (3) **Parameter Store cross-account sharing** — share parameters via resource policies (e.g., central account shares `/shared/golden-ami-id` with all member accounts). (4) **Patch Manager central configuration** — define patch baselines in the central account, apply across all accounts via Quick Setup. (5) **Change Manager delegation** — operations team in the central account approves changes across member accounts. (6) **Explorer** — multi-account, multi-region operational dashboard. Use AWS Organizations OUs to scope SSM policies — e.g., production OU has strict change calendar, development OU has relaxed patching schedule.
 
+## Scenario-Based Questions
+
+### S1: You have 500 EC2 instances across 3 accounts and need to patch all of them within a 4-hour maintenance window. How?
+
+**A:** Use **SSM Patch Manager with maintenance windows**. (1) **Patch baselines** — create custom baselines per OS (Amazon Linux, Windows). Define auto-approve rules (e.g., critical patches auto-approved after 3 days, security patches immediately). (2) **Patch groups** — tag instances by group (web-servers, db-servers). Each group can have different baselines and schedules. (3) **Maintenance window** — schedule for Saturday 2-6 AM. Use `AWS-RunPatchBaseline` document with `Operation: Install`. (4) **Concurrency control** — set `MaxConcurrency: 20%` and `MaxErrors: 10%`. This patches 20% of instances simultaneously and stops if >10% fail (prevents fleet-wide outage). (5) **Pre/post scripts** — add `AWS-RunShellScript` steps to drain ALB connections before patching and re-register after. (6) **Compliance** — after patching, SSM Compliance dashboard shows patch status across all 500 instances. Alert on non-compliant instances.
+
+### S2: An EC2 instance in a private subnet with no SSH key is unresponsive. How do you access it to debug?
+
+**A:** **SSM Session Manager** — no SSH, no bastion, no inbound security group rules needed. (1) Check the instance has the SSM Agent running (pre-installed on Amazon Linux 2, Windows). (2) Instance needs an IAM role with `AmazonSSMManagedInstanceCore` policy. (3) Instance needs outbound HTTPS (443) to SSM endpoints (via NAT Gateway or VPC endpoints). (4) `aws ssm start-session --target i-xxxxx` — opens a shell in the browser or terminal. (5) If Session Manager doesn't connect: check SSM Agent logs (`/var/log/amazon/ssm/`), verify the instance appears in SSM Fleet Manager, check VPC endpoints if no NAT. (6) **Alternative**: SSM Run Command — `aws ssm send-command --document-name AWS-RunShellScript --parameters commands=["cat /var/log/syslog"]` to run a diagnostic command without interactive access.
+
+### S3: Your team stores database passwords in environment variables on EC2 instances. Security audit flagged this. How do you fix?
+
+**A:** Migrate to **SSM Parameter Store (SecureString)** or **Secrets Manager**. (1) **Store secrets** — `aws ssm put-parameter --name /prod/db/password --type SecureString --value "xxx"` (encrypted with KMS). (2) **Application retrieval** — application calls `ssm:GetParameter` at startup instead of reading environment variables. Cache the value for the session (don't call SSM on every DB query). (3) **IAM** — EC2 instance role gets `ssm:GetParameter` permission scoped to `/prod/db/*`. No other role can read it. (4) **Rotation** — use Secrets Manager if you need automatic rotation (Lambda rotates the DB password every 30 days). SSM Parameter Store doesn't have built-in rotation. (5) **Remove old secrets** — delete environment variables from launch templates/user data. Check no passwords in code repos (git-secrets scan). (6) **Audit** — CloudTrail logs every `GetParameter` call. Set up CloudWatch alarm on unauthorized access attempts.
+
 ## Cheat Sheet
 
 | Concept | Key Facts |
