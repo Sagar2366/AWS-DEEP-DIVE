@@ -2,7 +2,7 @@
 
 ## Overview
 
-AWS offers a range of storage services for different data types, access patterns, and performance requirements. **S3** is the most important — an object store with virtually unlimited capacity. **EBS** provides block storage for EC2. **EFS** and **FSx** offer managed file systems. Understanding storage classes, lifecycle policies, and replication is essential for interviews.
+AWS offers a range of storage services for different data types, access patterns, and performance requirements. **S3** is the most important — an object store with virtually unlimited capacity. **EBS** provides block storage for EC2. **EFS** and **FSx** offer managed file systems. Understanding storage classes, lifecycle policies, and replication is essential.
 
 ## Key Concepts
 
@@ -183,7 +183,7 @@ sudo mkdir /mnt/s3files
 sudo mount -t s3files fs-0123456789abcdef0:/ /mnt/s3files
 ```
 
-> **Interview tip:** S3 Files is a game-changer for 2026 interviews. It solves the classic problem of "I need file system access to my S3 data" without S3 Mountpoint's read-only limitations. Key selling points: no data duplication, pay only for active data, 10M+ IOPS, and bidirectional sync. Think of it as "EFS meets S3" — file semantics with object storage economics.
+> **Key insight:** S3 Files is a game-changer. It solves the classic problem of "I need file system access to my S3 data" without S3 Mountpoint's read-only limitations. Key selling points: no data duplication, pay only for active data, 10M+ IOPS, and bidirectional sync. Think of it as "EFS meets S3" — file semantics with object storage economics.
 
 ### EBS (Elastic Block Store)
 
@@ -243,7 +243,7 @@ Bridges on-premises storage to AWS cloud:
 9. **Take regular EBS snapshots** and use DLM (Data Lifecycle Manager) to automate
 10. **Use multipart upload** for files > 100 MB
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What are the S3 storage classes and when would you use each?
 
@@ -543,7 +543,7 @@ Choosing the right migration method depends on data volume, network bandwidth, a
 
 ### S3 Data Protection Deep Dive
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your S3 bucket has 50TB of data and costs are climbing. Users access recent files frequently but rarely touch anything older than 30 days. How do you optimize?
 

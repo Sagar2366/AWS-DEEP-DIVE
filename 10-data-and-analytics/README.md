@@ -2,7 +2,7 @@
 
 ## Overview
 
-AWS provides a comprehensive data analytics stack: **Kinesis** for real-time streaming, **Athena** for serverless SQL queries on S3, **Glue** for ETL and data cataloging, **Lake Formation** for building data lakes, **EMR** for big data processing (Spark, Hadoop), and **QuickSight** for business intelligence dashboards. Interviews often test your ability to design end-to-end data pipelines.
+AWS provides a comprehensive data analytics stack: **Kinesis** for real-time streaming, **Athena** for serverless SQL queries on S3, **Glue** for ETL and data cataloging, **Lake Formation** for building data lakes, **EMR** for big data processing (Spark, Hadoop), and **QuickSight** for business intelligence dashboards. Understanding how to design end-to-end data pipelines is essential.
 
 ## Key Concepts
 
@@ -250,7 +250,7 @@ Serverless BI service for creating interactive dashboards.
 9. **Use EMR Serverless or Glue** instead of managing EMR clusters when possible
 10. **Compress and use larger files** in S3 to reduce Athena and Spark scan costs
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: How would you design a real-time data analytics pipeline?
 
@@ -463,7 +463,7 @@ Data governance on AWS spans access control, auditing, quality, and lineage.
 - Use **Glue Schema Registry** for schema versioning — track how schemas evolve over time
 - Tag data with classification (PII, sensitive, public) using **Macie** for automated discovery or **Lake Formation LF-Tags** for manual classification
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your Kinesis Data Stream has 10 shards but consumers are falling behind (iterator age increasing). What do you do?
 

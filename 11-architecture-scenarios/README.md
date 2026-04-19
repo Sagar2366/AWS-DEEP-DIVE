@@ -1,6 +1,6 @@
 # Architecture Scenarios
 
-Real-world system design problems commonly asked in AWS interviews. Each scenario includes a problem statement, requirements, architecture diagram, solution walkthrough, and trade-offs.
+Real-world system design problems that test your AWS architecture skills. Each scenario includes a problem statement, requirements, architecture diagram, solution walkthrough, and trade-offs.
 
 ---
 
@@ -1365,4 +1365,4 @@ pie title Typical AWS Cost Breakdown
 
 ---
 
-[← Previous: Data & Analytics](../10-data-and-analytics/) | [Next: Interview Tips →](../12-interview-tips/)
+[← Previous: Data & Analytics](../10-data-and-analytics/) | [Next: Design Patterns & Frameworks →](../12-design-patterns-and-frameworks/)

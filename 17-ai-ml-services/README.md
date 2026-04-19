@@ -2,9 +2,9 @@
 
 ## Overview
 
-Generative AI is the dominant interview topic for 2025-2026. **Amazon Bedrock** is the service you must know — it provides serverless access to foundation models (Anthropic Claude, Amazon Titan, Meta Llama, Mistral) via a simple API, with built-in RAG, guardrails, and agents. No ML expertise required. For custom ML workflows (training your own models, unique prediction tasks), **Amazon SageMaker** remains the full-featured ML platform. AWS also offers **Amazon Q Developer** for AI-assisted coding and IaC generation, plus pre-built AI services like **Rekognition** (vision), **Comprehend** (NLP), **Transcribe** (speech-to-text), and **Textract** (document processing) that require zero ML knowledge.
+Generative AI is the most rapidly evolving area of AWS services in 2025-2026. **Amazon Bedrock** is the service to start with — it provides serverless access to foundation models (Anthropic Claude, Amazon Titan, Meta Llama, Mistral) via a simple API, with built-in RAG, guardrails, and agents. No ML expertise required. For custom ML workflows (training your own models, unique prediction tasks), **Amazon SageMaker** remains the full-featured ML platform. AWS also offers **Amazon Q Developer** for AI-assisted coding and IaC generation, plus pre-built AI services like **Rekognition** (vision), **Comprehend** (NLP), **Transcribe** (speech-to-text), and **Textract** (document processing) that require zero ML knowledge.
 
-**Interview priority**: Bedrock (high) > Pre-built AI services (medium) > SageMaker (for ML-specific roles) > Q Developer (for DevOps roles).
+**Learning priority**: Bedrock (start here) > Pre-built AI services > SageMaker (for ML-specific work) > Q Developer (for DevOps workflows).
 
 ## Key Concepts
 
@@ -524,7 +524,7 @@ graph LR
 9. **Keep humans in the loop** — use confidence thresholds and escalate to humans below threshold
 10. **Use VPC endpoints** for Bedrock/SageMaker to keep inference traffic private
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: When would you use Bedrock vs SageMaker?
 
@@ -720,7 +720,7 @@ Bedrock prompt caching stores the computed representation of your prompt prefix 
 
 **When RAG fails**: (1) **Ambiguous queries** -- "How do I fix this?" without context. Mitigate with query rewriting (the FM reformulates the query). (2) **Cross-document reasoning** -- answer requires synthesizing information across multiple documents. Mitigate with larger chunk sizes or hierarchical retrieval. (3) **Numerical/structured data** -- vector search is weak for "What was our Q3 revenue?" from a table. Mitigate with structured data extraction or SQL-based retrieval alongside vector search. (4) **Stale embeddings** -- documents updated but embeddings not re-computed. Mitigate with incremental re-indexing. (5) **Chunk boundary issues** -- the answer spans two chunks. Mitigate with overlapping chunks (20% overlap).
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Leadership wants to add a "chat with your documents" feature to the internal portal. Employees should ask questions about company policies, HR docs, and tech docs. How do you build it?
 

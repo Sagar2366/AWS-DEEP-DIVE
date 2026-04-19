@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cloud migration is one of the most common interview topics for Solutions Architect roles. AWS provides a structured approach — the **7 Rs of Migration** — along with a suite of tools: **AWS Migration Hub** for tracking, **AWS DMS** for database migration, **AWS SCT** for schema conversion, and **AWS Application Discovery Service** for assessment. Abhishek Veeramalla, Stephane Maarek, and most AWS certification courses dedicate entire modules to this topic.
+Cloud migration is one of the most important skills for AWS architects. AWS provides a structured approach — the **7 Rs of Migration** — along with a suite of tools: **AWS Migration Hub** for tracking, **AWS DMS** for database migration, **AWS SCT** for schema conversion, and **AWS Application Discovery Service** for assessment.
 
 ## Key Concepts
 
@@ -199,7 +199,7 @@ graph TB
 9. **Plan network connectivity first** — VPN or Direct Connect to AWS before migration
 10. **Use Snow Family** when data volume makes network transfer impractical (> 10 TB)
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: Explain the 7 Rs of cloud migration.
 
@@ -281,7 +281,7 @@ graph TB
 
 ### Q18: What are application dependency mapping strategies?
 
-**A:** Understanding dependencies before migration prevents broken applications: (1) **Agent-based discovery** — AWS Application Discovery Agent captures running processes, network connections (TCP), and inter-server communication patterns. This gives you a dependency graph. (2) **Agentless discovery** — VMware connector discovers VMs and basic resource data but lacks network dependency detail. (3) **Network flow analysis** — VPC Flow Logs (or on-prem equivalent) reveal which servers communicate. (4) **CMDB integration** — many organizations maintain a Configuration Management Database (ServiceNow, BMC) that can supplement discovery data. (5) **Application owner interviews** — automated discovery misses some dependencies (batch jobs, file shares, DNS lookups). Always validate with the application team. (6) **Visualization** — Migration Hub provides a dependency map. Third-party tools like Cloudamize and RISC Networks offer richer visualization. The goal is to identify "move groups" — sets of servers that must migrate together.
+**A:** Understanding dependencies before migration prevents broken applications: (1) **Agent-based discovery** — AWS Application Discovery Agent captures running processes, network connections (TCP), and inter-server communication patterns. This gives you a dependency graph. (2) **Agentless discovery** — VMware connector discovers VMs and basic resource data but lacks network dependency detail. (3) **Network flow analysis** — VPC Flow Logs (or on-prem equivalent) reveal which servers communicate. (4) **CMDB integration** — many organizations maintain a Configuration Management Database (ServiceNow, BMC) that can supplement discovery data. (5) **Application owner discussions** — automated discovery misses some dependencies (batch jobs, file shares, DNS lookups). Always validate with the application team. (6) **Visualization** — Migration Hub provides a dependency map. Third-party tools like Cloudamize and RISC Networks offer richer visualization. The goal is to identify "move groups" — sets of servers that must migrate together.
 
 ## Deep Dive Notes
 
@@ -323,7 +323,7 @@ Before migrating a single server, network connectivity must be established:
 
 After migration, the real cost savings begin: (1) **Right-sizing** — Compute Optimizer analyzes 14+ days of CloudWatch data and recommends smaller or different instance families. Most lift-and-shift instances are over-provisioned because on-prem sizing was conservative. (2) **Graviton migration** — ARM-based instances offer up to 40% better price-performance. Recompile applications (most languages work without changes) and switch instance families (m5 to m7g). (3) **Managed services** — move self-managed databases to RDS/Aurora, self-managed Kafka to MSK, self-managed Redis to ElastiCache. Reduces operational burden and often costs less. (4) **Savings Plans** — after 1-3 months of stable usage, purchase Compute Savings Plans for the baseline. (5) **Serverless evaluation** — identify candidates for Lambda, Fargate, or Aurora Serverless. (6) **Storage optimization** — S3 Intelligent-Tiering for data lakes, GP3 EBS volumes (cheaper than GP2 for most workloads).
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your company has 200 on-premises servers. Leadership wants everything in AWS within 6 months. How do you plan this?
 

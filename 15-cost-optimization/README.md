@@ -2,7 +2,7 @@
 
 ## Overview
 
-Every AWS interview includes cost questions — "How would you reduce costs?" is guaranteed. AWS provides a suite of cost management tools: **AWS Cost Explorer** for analysis, **AWS Budgets** for alerts, **AWS Trusted Advisor** for recommendations, **AWS Compute Optimizer** for right-sizing, and **Savings Plans / Reserved Instances** for commitment discounts. Understanding pricing models and optimization strategies separates good engineers from great architects.
+Understanding cost optimization is essential for any AWS architect. AWS provides a suite of cost management tools: **AWS Cost Explorer** for analysis, **AWS Budgets** for alerts, **AWS Trusted Advisor** for recommendations, **AWS Compute Optimizer** for right-sizing, and **Savings Plans / Reserved Instances** for commitment discounts. Understanding pricing models and optimization strategies is what distinguishes great architects.
 
 ## Key Concepts
 
@@ -210,7 +210,7 @@ graph TB
 9. **Use CloudFront** for internet egress — cheaper than direct and faster
 10. **Delete unused resources** — unattached EBS volumes, old snapshots, idle load balancers, unused Elastic IPs
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: How would you reduce AWS costs for a company spending $100K/month?
 
@@ -323,7 +323,7 @@ Step-by-step: (1) Enable CUR in Billing console — deliver hourly, Parquet form
 
 Most organizations are at Level 1-2. The goal is Level 3-4 where cost is a first-class engineering concern. The transition from Level 2 to Level 3 requires executive sponsorship, a dedicated FinOps practice, and tooling automation.
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your AWS bill is $80K/month and leadership demands a 25% reduction in 30 days. Where do you start?
 

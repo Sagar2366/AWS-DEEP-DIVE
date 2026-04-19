@@ -2,7 +2,7 @@
 
 ## Overview
 
-AWS offers purpose-built databases for every workload type. **RDS** provides managed relational databases. **Aurora** is AWS's cloud-native relational database with higher performance. **DynamoDB** is a fully managed NoSQL database for any scale. **ElastiCache** provides in-memory caching. **Redshift** is a petabyte-scale data warehouse. Choosing the right database is one of the most common interview topics.
+AWS offers purpose-built databases for every workload type. **RDS** provides managed relational databases. **Aurora** is AWS's cloud-native relational database with higher performance. **DynamoDB** is a fully managed NoSQL database for any scale. **ElastiCache** provides in-memory caching. **Redshift** is a petabyte-scale data warehouse. Choosing the right database is one of the most important architecture decisions.
 
 ## Key Concepts
 
@@ -221,7 +221,7 @@ Petabyte-scale columnar data warehouse for analytics.
 9. **Use lazy loading + TTL** as the default caching strategy
 10. **Use Redshift for analytics**, not OLTP — that's what RDS/Aurora/DynamoDB are for
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: When would you choose Aurora over standard RDS?
 
@@ -325,7 +325,7 @@ Petabyte-scale columnar data warehouse for analytics.
 
 ### DynamoDB Single-Table Design Walkthrough
 
-Consider an e-commerce application with three entity types: Users, Orders, and OrderItems. In single-table design, all entities share one table with generic key names. **Users**: PK = "USER#alice", SK = "PROFILE". **Orders**: PK = "USER#alice", SK = "ORDER#2024-01-15#ord-123". **OrderItems**: PK = "ORDER#ord-123", SK = "ITEM#sku-789". To query all orders for a user, you Query with PK = "USER#alice" and SK begins_with "ORDER#" — this returns all orders sorted by date. To get all items in an order, Query with PK = "ORDER#ord-123" and SK begins_with "ITEM#". For an access pattern like "get all orders containing a specific product," add a GSI with GSI-PK = "PRODUCT#sku-789" and GSI-SK = "ORDER#ord-123". Key design principles: use **composite sort keys** for hierarchical data, **overload GSIs** to serve multiple access patterns, use **sparse indexes** (only items with the GSI attribute appear), and **denormalize** by duplicating data (store product name in the OrderItem rather than requiring a join). Single-table design minimizes round-trips and cost but requires all access patterns to be known upfront.
+> For a comprehensive deep dive into single-table design with examples, access pattern modeling, GSI strategies, and write sharding, see [Section 20: Advanced DynamoDB Patterns](../20-advanced-dynamodb/).
 
 ### Aurora Architecture Internals
 
@@ -339,7 +339,7 @@ Aurora decouples compute from storage. The **storage layer** is a distributed, f
 
 The decision is driven by access patterns, scale requirements, and consistency needs. **Choose SQL (RDS/Aurora)** when: you need complex joins across tables, ACID transactions spanning multiple entities, flexible ad-hoc querying (business analysts writing arbitrary SQL), strong referential integrity, or your data model is highly relational. **Choose NoSQL (DynamoDB)** when: you need single-digit millisecond latency at any scale, your access patterns are well-defined and limited, you have massive write throughput requirements, your data is denormalized or document-oriented, or you need global replication (Global Tables). **Hybrid approach**: Many production architectures use both — DynamoDB for the hot path (user sessions, shopping carts, real-time APIs) and Aurora for the cold path (reports, analytics, complex queries). Common anti-patterns: using DynamoDB when you need ad-hoc queries (fight against its strengths), using RDS when you need horizontal write scaling (will hit single-node limits), or choosing based on technology preference rather than workload requirements.
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your Aurora MySQL cluster's read replica lag has jumped from 5ms to 500ms. Users see stale data. How do you investigate?
 

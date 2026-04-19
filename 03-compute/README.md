@@ -157,7 +157,7 @@ A PaaS that abstracts infrastructure: upload your code and Beanstalk handles EC2
 9. **Use Spot Instances for stateless workloads** (batch, CI/CD runners)
 10. **Right-size instances** using AWS Compute Optimizer
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What are the EC2 purchasing options and when would you use each?
 
@@ -488,7 +488,7 @@ graph LR
 | Purchase: Spot Strategies | capacity-optimized (safest), price-capacity-optimized (recommended), diversified (long-running), lowest-price (cheapest/riskiest) |
 | Dedicated Host vs Instance | Host = physical server, BYOL, socket visibility. Instance = hardware isolation, no server control |
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: EC2 instances hit 90% CPU daily 9-11 AM, then drop to 20%. How do you optimize?
 

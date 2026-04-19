@@ -225,7 +225,7 @@ graph LR
 9. **Use Fargate Spot** for fault-tolerant workloads (70% savings)
 10. **Use App Runner** when you want the simplest deployment experience
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: When would you choose ECS vs EKS?
 
@@ -346,7 +346,7 @@ A production container security strategy operates at four layers. **Image Securi
 
 A production EKS cluster requires careful configuration across multiple dimensions. **Networking**: Use private API server endpoint (disable public access), deploy nodes in private subnets, use VPC CNI with prefix delegation for IP efficiency, enable Security Groups for Pods for sensitive workloads. **Compute**: Use Karpenter for intelligent node provisioning with multiple instance families and Spot integration, set default resource requests and limits via LimitRange, deploy Karpenter NodePools per workload tier (system, general, GPU). **Security**: Enable EKS Pod Identity for AWS access, deploy OPA Gatekeeper for policy enforcement (no privileged containers, mandatory labels, approved registries), enable GuardDuty EKS Runtime Monitoring, encrypt etcd with a customer-managed KMS key, enable audit logging to CloudWatch. **Observability**: Deploy AWS Distro for OpenTelemetry (ADOT) for metrics, traces, and logs. Use Container Insights for CloudWatch dashboards. Deploy FluentBit DaemonSet for centralized logging. Enable Prometheus metrics with Amazon Managed Prometheus (AMP). **Reliability**: Spread pods across AZs with topology spread constraints, set pod disruption budgets on all critical services, use pod anti-affinity to avoid co-locating replicas, configure liveness and readiness probes on every container, enable cluster autoscaling via Karpenter. **GitOps**: Use ArgoCD or Flux for declarative deployment from Git, enabling audit trails, rollback, and multi-cluster consistency.
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your EKS cluster has 50 pods across 10 nodes. During deployment, some pods fail to schedule with "Insufficient CPU" errors even though nodes show 40% average CPU. What's wrong?
 

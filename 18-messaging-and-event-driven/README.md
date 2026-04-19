@@ -2,7 +2,7 @@
 
 ## Overview
 
-Event-driven architecture (EDA) is a design pattern where services communicate through events rather than direct calls. AWS provides a rich set of messaging and eventing services: **SQS** for queuing, **SNS** for pub/sub, **EventBridge** for event routing, **Kinesis** for streaming, **MSK** for Apache Kafka, and **MQ** for legacy protocol support. Understanding when to use which service — and how to combine them — is one of the most frequently tested interview topics for Solutions Architect roles.
+Event-driven architecture (EDA) is a design pattern where services communicate through events rather than direct calls. AWS provides a rich set of messaging and eventing services: **SQS** for queuing, **SNS** for pub/sub, **EventBridge** for event routing, **Kinesis** for streaming, **MSK** for Apache Kafka, and **MQ** for legacy protocol support. Understanding when to use which service — and how to combine them — is essential for building robust, scalable architectures.
 
 ## Key Concepts
 
@@ -310,7 +310,7 @@ For payloads exceeding SQS's 256 KB limit. Store the large payload in S3 and sen
 11. **Archive EventBridge events** for debugging and replay capability
 12. **Use Amazon MQ only for legacy protocol compatibility** — prefer SQS/SNS for new apps
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: When would you use SQS vs SNS vs EventBridge?
 
@@ -415,7 +415,7 @@ graph TB
 | **Best For** | Simple flows, high autonomy, many teams | Complex flows, strict ordering, compensation logic |
 | **AWS Service** | EventBridge + SQS | Step Functions |
 
-**Interview tip**: Most real systems use a hybrid — orchestration for critical business flows (order processing) and choreography for notifications and analytics.
+**Key insight**: Most real systems use a hybrid — orchestration for critical business flows (order processing) and choreography for notifications and analytics.
 
 ### EventBridge Schema Registry & Discovery
 
@@ -460,7 +460,7 @@ Key metrics to alarm on:
 - **ApproximateAgeOfOldestMessage** on main queue > threshold (processing stalled)
 - **NumberOfMessagesSent** to DLQ > N/hour (systemic failure)
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your SQS queue has 500,000 messages backed up and growing. Consumers are running but can't keep up. How do you handle this?
 

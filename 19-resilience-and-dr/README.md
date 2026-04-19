@@ -2,7 +2,7 @@
 
 ## Overview
 
-AWS interviews heavily test your understanding of resilience — how systems survive failures and recover from disasters. This section covers **disaster recovery strategies** (Backup & Restore, Pilot Light, Warm Standby, Active-Active), **resilience patterns** (multi-AZ, multi-region, chaos engineering), and key AWS services like **Route 53 health checks**, **Aurora Global Database**, **S3 Cross-Region Replication**, **AWS Elastic Disaster Recovery (DRS)**, and **AWS Resilience Hub**. Understanding RPO/RTO trade-offs is critical for Solutions Architect interviews.
+Resilience is fundamental to building production-ready systems — how they survive failures and recover from disasters. This section covers **disaster recovery strategies** (Backup & Restore, Pilot Light, Warm Standby, Active-Active), **resilience patterns** (multi-AZ, multi-region, chaos engineering), and key AWS services like **Route 53 health checks**, **Aurora Global Database**, **S3 Cross-Region Replication**, **AWS Elastic Disaster Recovery (DRS)**, and **AWS Resilience Hub**. Understanding RPO/RTO trade-offs is critical for designing reliable architectures.
 
 ## Key Concepts
 
@@ -246,7 +246,7 @@ Chaos engineering service — intentionally inject failures to test resilience.
 11. **Use Resilience Hub** to continuously assess and improve your resilience posture
 12. **Consider blast radius** — use multiple accounts and regions to limit the impact of failures
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: Explain RPO and RTO with examples.
 
@@ -353,7 +353,7 @@ flowchart TD
 | **Active-Active with CRDT** | Strong eventual | ~0 | Custom (ElastiCache + app logic) | Complex to implement, no native AWS support |
 | **Synchronous multi-region** | Strong | 0 | Not practical at scale | Latency too high for cross-region sync writes |
 
-**Interview tip**: DynamoDB Global Tables is the only fully managed active-active multi-region database on AWS. Aurora Global Database is active-passive (one writer region). For active-active with Aurora, you'd need application-level conflict resolution.
+**Key insight**: DynamoDB Global Tables is the only fully managed active-active multi-region database on AWS. Aurora Global Database is active-passive (one writer region). For active-active with Aurora, you'd need application-level conflict resolution.
 
 ### Resilience Testing Maturity Model
 
@@ -392,7 +392,7 @@ Cell sizing guidelines:
 - **Shared nothing** — cells don't call each other
 - **Cell router** is the single shared component — must be highly available (multi-region, multi-AZ)
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your application's primary region (us-east-1) has a partial outage — EC2 is degraded but RDS is fine. Do you failover to DR or wait it out?
 

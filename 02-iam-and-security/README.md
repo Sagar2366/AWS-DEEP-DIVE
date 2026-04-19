@@ -2,7 +2,7 @@
 
 ## Overview
 
-**AWS Identity and Access Management (IAM)** lets you control who can access what in your AWS account. It's a free, global service (not region-specific) and the foundation of every secure AWS architecture. IAM is arguably the most important service to understand for interviews — it touches everything.
+**AWS Identity and Access Management (IAM)** lets you control who can access what in your AWS account. It's a free, global service (not region-specific) and the foundation of every secure AWS architecture. IAM is arguably the most important AWS service to understand — it touches everything.
 
 ## Key Concepts
 
@@ -147,7 +147,7 @@ graph TD
 9. **Use resource-based policies** for cross-account access when possible
 10. **Use permission boundaries** to delegate admin safely
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What is the difference between an IAM User and an IAM Role?
 
@@ -459,7 +459,7 @@ Traditional network security relies on a perimeter — once you're "inside" the 
 - **PrivateLink**: Keeps traffic between services on the AWS private network, eliminating exposure to the public internet even for cross-account access.
 - **AWS Nitro Enclaves**: Provides isolated compute environments for processing highly sensitive data with cryptographic attestation, ensuring even AWS operators cannot access the data.
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: An engineer's AWS access keys are found in a public GitHub repo. Walk through your incident response.
 

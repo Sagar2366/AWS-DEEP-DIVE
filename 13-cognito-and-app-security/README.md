@@ -206,7 +206,7 @@ Centrally manage security rules across multiple accounts in AWS Organizations:
 9. **Use Firewall Manager** in multi-account Organizations for consistent security
 10. **Store sensitive config in Cognito app client secrets** — never hardcode client secrets in frontend code
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What is the difference between Cognito User Pool and Identity Pool?
 
@@ -315,7 +315,7 @@ WAF rules in a Web ACL are evaluated in **priority order** (lowest number first)
 
 Cognito Advanced Security (add-on) provides: (1) **Adaptive Authentication** — risk-based MFA challenges. Cognito evaluates each sign-in for risk signals (new device, unusual location, impossible travel, known bad IP). Low risk = allow. Medium risk = challenge (MFA). High risk = block. This reduces friction for trusted users while protecting against attacks. (2) **Compromised Credential Detection** — Cognito checks username/password combinations against a database of known leaked credentials (from public breaches). If a match is found, the user is forced to change their password. (3) **Advanced security metrics** — CloudWatch metrics for risk levels, compromised credentials, and adaptive authentication events. Enable advanced security in the User Pool settings. It adds $0.050 per MAU (monthly active user) to the cost.
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your API is getting hit by credential stuffing attacks — thousands of login attempts per minute with leaked username/password pairs. How do you defend?
 
@@ -352,4 +352,4 @@ Cognito Advanced Security (add-on) provides: (1) **Adaptive Authentication** —
 
 ---
 
-[← Previous: Interview Tips](../12-interview-tips/) | [Next: Cloud Migration →](../14-cloud-migration/)
+[← Previous: Design Patterns & Frameworks](../12-design-patterns-and-frameworks/) | [Next: Cloud Migration →](../14-cloud-migration/)

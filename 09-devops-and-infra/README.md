@@ -2,7 +2,7 @@
 
 ## Overview
 
-AWS provides a complete DevOps toolchain: **CloudFormation** and **CDK** for Infrastructure as Code, **CodePipeline/CodeBuild/CodeDeploy** for CI/CD, and **CloudWatch/X-Ray/CloudTrail** for monitoring, tracing, and auditing. Understanding IaC and CI/CD pipelines is essential — interviews frequently ask about deployment strategies and observability.
+AWS provides a complete DevOps toolchain: **CloudFormation** and **CDK** for Infrastructure as Code, **CodePipeline/CodeBuild/CodeDeploy** for CI/CD, and **CloudWatch/X-Ray/CloudTrail** for monitoring, tracing, and auditing. Understanding IaC and CI/CD pipelines is essential — deployment strategies and observability are key skills to master.
 
 ## Key Concepts
 
@@ -185,7 +185,7 @@ graph TB
 
 ### Observability & Governance
 
-Modern interviews use the term **observability** — the ability to understand a system's internal state from its external outputs (metrics, logs, traces). Monitoring asks "is it broken?" Observability asks "why is it broken?" AWS provides a layered stack: **CloudWatch** for AWS-native metrics/logs, **X-Ray** for distributed tracing, **ADOT + Prometheus + Grafana** for vendor-neutral enterprise observability, and **CloudTrail + Config** for governance and audit.
+Modern operations relies on **observability** — the ability to understand a system's internal state from its external outputs (metrics, logs, traces). Monitoring asks "is it broken?" Observability asks "why is it broken?" AWS provides a layered stack: **CloudWatch** for AWS-native metrics/logs, **X-Ray** for distributed tracing, **ADOT + Prometheus + Grafana** for vendor-neutral enterprise observability, and **CloudTrail + Config** for governance and audit.
 
 #### Amazon CloudWatch
 
@@ -238,7 +238,7 @@ graph LR
 
 #### Modern Observability Stack (ADOT, Prometheus, Grafana)
 
-Interviews now distinguish **monitoring** (CloudWatch) from **observability** (metrics + logs + traces with open standards). AWS provides managed, vendor-neutral observability tools:
+It's important to distinguish **monitoring** (CloudWatch) from **observability** (metrics + logs + traces with open standards). AWS provides managed, vendor-neutral observability tools:
 
 ```mermaid
 graph TB
@@ -415,7 +415,7 @@ Pre-packaged collections of Config rules + remediation actions mapped to complia
 9. **Use AWS Config rules** to enforce compliance (encryption, public access)
 10. **Don't store secrets in CodeBuild** — use Secrets Manager or Parameter Store
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What is Infrastructure as Code and why is it important?
 
@@ -638,7 +638,7 @@ graph TB
 | **Automation** | EventBridge rules react to specific API calls | Remediation actions via SSM Automation documents | Alarms trigger SNS, Auto Scaling, Lambda, or Incident Manager |
 | **Cost Model** | Free for management events (1 copy); data events and CloudTrail Lake charged per event | Per configuration item recorded + per rule evaluation | Per metric, per log GB ingested, per alarm, per query |
 
-**When to use them together (common interview scenario):**
+**When to use them together:**
 1. **Unauthorized change detection**: CloudTrail detects an API call that modifies a Security Group → EventBridge routes the event → Lambda checks if the change is authorized → if not, Config evaluates the new configuration against rules → Config triggers SSM remediation to revert the change → CloudWatch alarm notifies the security team.
 2. **Compliance audit**: Config provides continuous resource compliance status (current and historical), CloudTrail provides the audit trail of who made each change, and CloudWatch provides the operational context of what impact the change had on system behavior.
 
@@ -757,7 +757,7 @@ A secure deployment pipeline implements checks at every stage to prevent vulnera
 5. **Secrets isolation** — never pass secrets as plaintext environment variables; reference Secrets Manager ARNs
 6. **Immutable artifacts** — once an image is built, tag it with the commit SHA; never overwrite tags like "latest" in production pipelines
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: A CloudFormation stack update fails and gets stuck in UPDATE_ROLLBACK_FAILED. How do you recover?
 

@@ -126,10 +126,10 @@ graph TB
 1. **Always deploy across multiple AZs** for high availability
 2. **Choose regions based on compliance first**, then latency, then cost
 3. **Use the Well-Architected Tool** to review your workloads
-4. **Understand the Shared Responsibility Model** — it's asked in every interview
+4. **Understand the Shared Responsibility Model** — it's foundational to AWS security
 5. **Start with managed services** before building custom solutions
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What is the difference between a Region and an Availability Zone?
 
@@ -187,7 +187,7 @@ graph TB
 
 ### Q12: How does the Shared Responsibility Model shift across EC2, RDS, and Lambda?
 
-**A:** The Shared Responsibility Model is not one-size-fits-all — it shifts depending on the service type. With **EC2 (IaaS)**, the customer is responsible for the OS, patching, middleware, runtime, application code, and data. With **RDS (PaaS)**, AWS manages the OS, database engine patching, and underlying infrastructure, while the customer manages database configuration, IAM access, encryption settings, security groups, and data. With **Lambda (Serverless/FaaS)**, AWS manages everything up to and including the runtime — the customer is only responsible for their function code, IAM execution role, and data. Understanding this gradient is critical in interviews because it determines who is accountable for security controls at each layer.
+**A:** The Shared Responsibility Model is not one-size-fits-all — it shifts depending on the service type. With **EC2 (IaaS)**, the customer is responsible for the OS, patching, middleware, runtime, application code, and data. With **RDS (PaaS)**, AWS manages the OS, database engine patching, and underlying infrastructure, while the customer manages database configuration, IAM access, encryption settings, security groups, and data. With **Lambda (Serverless/FaaS)**, AWS manages everything up to and including the runtime — the customer is only responsible for their function code, IAM execution role, and data. Understanding this gradient is critical because it determines who is accountable for security controls at each layer.
 
 ### Q13: What is the AWS Cloud Adoption Framework (CAF)?
 
@@ -199,7 +199,7 @@ graph TB
 
 ### Q15: What is AWS Artifact and what compliance programs does AWS support?
 
-**A:** AWS Artifact is a self-service portal in the AWS console for accessing AWS compliance reports, certifications, and agreements. It provides on-demand access to SOC 1/2/3 reports, PCI DSS Attestation of Compliance, ISO 27001/27017/27018 certifications, FedRAMP authorization packages, HIPAA Business Associate Addendum (BAA), and many more. AWS maintains compliance with over 140 security standards and compliance certifications globally. For interview purposes, know these key programs: **HIPAA** requires a BAA with AWS and restricts which services can process Protected Health Information (PHI). **SOC 2** reports cover security, availability, processing integrity, confidentiality, and privacy. **PCI DSS** certifies that the AWS infrastructure meets Level 1 requirements for handling credit card data, but the customer is still responsible for their application-layer PCI compliance.
+**A:** AWS Artifact is a self-service portal in the AWS console for accessing AWS compliance reports, certifications, and agreements. It provides on-demand access to SOC 1/2/3 reports, PCI DSS Attestation of Compliance, ISO 27001/27017/27018 certifications, FedRAMP authorization packages, HIPAA Business Associate Addendum (BAA), and many more. AWS maintains compliance with over 140 security standards and compliance certifications globally. Key programs to understand: **HIPAA** requires a BAA with AWS and restricts which services can process Protected Health Information (PHI). **SOC 2** reports cover security, availability, processing integrity, confidentiality, and privacy. **PCI DSS** certifies that the AWS infrastructure meets Level 1 requirements for handling credit card data, but the customer is still responsible for their application-layer PCI compliance.
 
 ### Q16: What is the practical difference between high availability, fault tolerance, and disaster recovery?
 
@@ -207,7 +207,7 @@ graph TB
 
 ### Q17: How do you decide between managed and unmanaged (self-managed) services?
 
-**A:** Start with managed services by default unless you have a specific reason to self-manage. Managed services (RDS, DynamoDB, EFS, Lambda) reduce operational overhead because AWS handles patching, backups, scaling, and high availability. Choose self-managed (EC2 + self-installed database) when you need a specific software version or configuration that managed services do not support, require custom kernel modules or OS-level access, need a database engine not available as a managed offering, or have existing licenses (BYOL) that require dedicated hosts. The trade-off is always operational burden vs. control. In interviews, frame this as: "I default to managed services for faster time-to-market and reduced undifferentiated heavy lifting, and only self-manage when there is a specific technical or compliance requirement."
+**A:** Start with managed services by default unless you have a specific reason to self-manage. Managed services (RDS, DynamoDB, EFS, Lambda) reduce operational overhead because AWS handles patching, backups, scaling, and high availability. Choose self-managed (EC2 + self-installed database) when you need a specific software version or configuration that managed services do not support, require custom kernel modules or OS-level access, need a database engine not available as a managed offering, or have existing licenses (BYOL) that require dedicated hosts. The trade-off is always operational burden vs. control. The principle is: "Default to managed services for faster time-to-market and reduced undifferentiated heavy lifting, and only self-manage when there is a specific technical or compliance requirement."
 
 ### Q18: When should you deploy multi-region vs. multi-AZ?
 
@@ -221,7 +221,7 @@ graph TB
 
 **A:** SCPs and IAM policies serve fundamentally different purposes in governance. **IAM policies** grant or deny permissions to specific principals (users, roles, groups) and are the primary mechanism for fine-grained access control. **SCPs** set the maximum available permissions for an entire AWS account or organizational unit — they act as a guardrail or ceiling and never grant permissions themselves. For example, an SCP that denies all actions in the ap-southeast-1 region means that no IAM policy in any account under that OU can override it, regardless of how permissive the IAM policy is. Use SCPs for organization-wide guardrails (allowed regions, disallowed services, mandatory encryption). Use IAM policies for granting specific permissions to specific identities. Together, the effective permission is the intersection of SCP + IAM policy + permissions boundary.
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your startup is launching an MVP with 2 developers. How do you choose between EC2, ECS, or Lambda?
 
@@ -259,7 +259,7 @@ A Landing Zone is a well-architected multi-account foundation that includes:
 
 ### Compliance and Governance on AWS
 
-Key compliance concepts for interviews:
+Key compliance concepts:
 
 - **Shared Responsibility for Compliance**: AWS certifies the infrastructure layer. The customer must certify their application, configurations, and data handling practices. For example, running on HIPAA-eligible services does not make you HIPAA-compliant — you must also sign a BAA, use encryption, configure access logging, and implement proper access controls.
 - **AWS Config**: Continuously evaluates resource configurations against desired state. Use Config Rules (managed or custom) to check compliance (e.g., all EBS volumes encrypted, all S3 buckets versioned). Config supports remediation actions via SSM Automation.

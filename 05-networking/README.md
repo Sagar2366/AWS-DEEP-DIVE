@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Amazon VPC (Virtual Private Cloud)** is your private network in AWS. Every resource you deploy (EC2, RDS, Lambda) lives inside a VPC. Understanding VPC architecture — subnets, route tables, gateways, and security layers — is critical for interviews because networking is the backbone of every architecture.
+**Amazon VPC (Virtual Private Cloud)** is your private network in AWS. Every resource you deploy (EC2, RDS, Lambda) lives inside a VPC. Understanding VPC architecture — subnets, route tables, gateways, and security layers — is critical because networking is the backbone of every architecture.
 
 ## Key Concepts
 
@@ -94,7 +94,7 @@ graph TB
 
 ### IPv6 in VPC
 
-AWS has significantly pushed IPv6 adoption. Key facts for interviews:
+AWS has significantly pushed IPv6 adoption. Key facts:
 
 ```mermaid
 graph TB
@@ -118,7 +118,7 @@ graph TB
 | **NAT64/DNS64** | N/A | Allows IPv6-only resources to reach IPv4 endpoints |
 | **Supported Services** | All | EC2, ALB, NLB, S3, DynamoDB, and most modern services |
 
-**Interview tip**: IPv6 addresses in AWS VPCs are globally unique and publicly routable, but this does NOT mean they're publicly accessible — Security Groups still control all inbound traffic (default deny). IPv6-only subnets are a cost optimization (no need to manage scarce IPv4 addresses) and are increasingly used for large-scale container and serverless deployments.
+**Key insight**: IPv6 addresses in AWS VPCs are globally unique and publicly routable, but this does NOT mean they're publicly accessible — Security Groups still control all inbound traffic (default deny). IPv6-only subnets are a cost optimization (no need to manage scarce IPv4 addresses) and are increasingly used for large-scale container and serverless deployments.
 
 ### Security Groups vs NACLs
 
@@ -169,7 +169,7 @@ graph TB
 
 ### Hybrid Connectivity (Data Center to VPC)
 
-> **Interview trap question**: "How do you connect your on-premises data center to a VPC?" — interviewers expect you to compare Direct Connect vs VPN, explain when to use each, and describe the combined pattern.
+> **Important distinction**: "How do you connect your on-premises data center to a VPC?" — you should be able to compare Direct Connect vs VPN, explain when to use each, and describe the combined pattern.
 
 ```mermaid
 graph LR
@@ -252,7 +252,7 @@ graph LR
 9. **Use Direct Connect with VPN backup** for hybrid production workloads
 10. **Use Route 53 health checks** with failover routing for DR
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: Walk me through designing a VPC for a production application.
 
@@ -430,7 +430,7 @@ graph LR
     REC -.->|"Cache HIT →<br/>skip origin fetch"| EDGE
 ```
 
-**Key architectural details for interviews:**
+**Key architectural details:**
 
 - **Cache key**: By default, CloudFront caches based on URL path. You can include query strings, headers, and cookies in the cache key via **cache policies**, but adding more dimensions reduces cache hit ratio.
 - **Origin request policy**: Controls which headers, cookies, and query strings are forwarded to the origin (separate from what is used as the cache key).
@@ -461,7 +461,7 @@ Choosing between VPN, Direct Connect, or a combined approach depends on bandwidt
 5. **Connecting to multiple VPCs/Regions?** Use Direct Connect Gateway (multi-Region over one DX circuit) + Transit Gateway (hub for multiple VPCs).
 6. **Budget-constrained but need reliability?** VPN with two connections to different AZs; consider accelerated VPN for better performance.
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Users in Asia report your US-hosted application is slow (2-3 second load times). How do you reduce latency?
 

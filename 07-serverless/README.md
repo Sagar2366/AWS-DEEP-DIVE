@@ -273,7 +273,7 @@ graph TD
 9. **Use Step Functions** for multi-step workflows instead of chaining Lambdas
 10. **Monitor with X-Ray** for distributed tracing across serverless components
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What is a Lambda cold start and how do you minimize it?
 
@@ -281,7 +281,7 @@ graph TD
 
 ### Q2: Explain the difference between SQS, SNS, and EventBridge.
 
-**A:** **SQS** = point-to-point queue. One producer, one consumer group. Messages persist until processed. Use for decoupling and retry. **SNS** = pub/sub. One message fans out to many subscribers. Push-based. Use for broadcasting notifications. **EventBridge** = event bus with content-based routing. Supports event patterns, schema registry, third-party SaaS sources, and 200+ AWS service events. EventBridge is the most flexible; use SQS for queuing, SNS for fan-out, EventBridge for complex event routing.
+**A:** **SQS** = point-to-point queue for decoupling and retry. **SNS** = pub/sub for fan-out to many subscribers. **EventBridge** = event bus with content-based routing, schema registry, and 200+ AWS service integrations. For a comprehensive comparison with patterns and use cases, see [Section 18: Messaging & Event-Driven](../18-messaging-and-event-driven/).
 
 ### Q3: How does Lambda concurrency work?
 
@@ -527,7 +527,7 @@ graph TD
     APPSYNC -.->|"Subscription"| WS["WebSocket<br/>Push to subscribed<br/>clients on mutation"]
 ```
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your Lambda function processes images uploaded to S3. During peak hours, some images aren't processed for 10+ minutes. What's wrong?
 

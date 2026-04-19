@@ -2,7 +2,7 @@
 
 ## Overview
 
-**AWS Systems Manager (SSM)** is a suite of operational tools for managing EC2 instances, on-premises servers, and other AWS resources at scale. It's heavily covered in DevOps interviews because it solves real operational pain: **Parameter Store** for configuration, **Session Manager** for secure shell access (no SSH keys!), **Patch Manager** for patching, and **Run Command** for remote execution. This section also covers **AWS Backup** for centralized backup management.
+**AWS Systems Manager (SSM)** is a suite of operational tools for managing EC2 instances, on-premises servers, and other AWS resources at scale. It solves real operational pain: **Parameter Store** for configuration, **Session Manager** for secure shell access (no SSH keys!), **Patch Manager** for patching, and **Run Command** for remote execution. This section also covers **AWS Backup** for centralized backup management.
 
 ## Key Concepts
 
@@ -221,7 +221,7 @@ graph TB
 9. **Log all Session Manager sessions** to S3 and CloudWatch for audit
 10. **Use SSM Inventory** to track installed software and OS configurations
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What is AWS Systems Manager and why is it important?
 
@@ -330,7 +330,7 @@ Most teams are at Level 1-2. Level 3-4 requires investment in runbook developmen
 
 For enterprise deployments: (1) **Resource Data Sync** — aggregate Inventory and Compliance data from all accounts into a central S3 bucket for unified reporting. (2) **Automation cross-account execution** — run runbooks in member accounts from the management account using delegated administration. (3) **Parameter Store cross-account sharing** — share parameters via resource policies (e.g., central account shares `/shared/golden-ami-id` with all member accounts). (4) **Patch Manager central configuration** — define patch baselines in the central account, apply across all accounts via Quick Setup. (5) **Change Manager delegation** — operations team in the central account approves changes across member accounts. (6) **Explorer** — multi-account, multi-region operational dashboard. Use AWS Organizations OUs to scope SSM policies — e.g., production OU has strict change calendar, development OU has relaxed patching schedule.
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: You have 500 EC2 instances across 3 accounts and need to patch all of them within a 4-hour maintenance window. How?
 

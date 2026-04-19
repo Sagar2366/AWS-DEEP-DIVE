@@ -2,7 +2,7 @@
 
 ## Overview
 
-DynamoDB is one of the most frequently tested services in AWS interviews, especially for Solutions Architect and Senior Engineer roles. While basic DynamoDB knowledge (partition keys, sort keys, GSIs) is covered in Section 06, this section goes deep on **single-table design**, **access pattern modeling**, **advanced indexing strategies**, **cost optimization**, and **production best practices**. Mastering DynamoDB data modeling is a differentiator in interviews.
+DynamoDB is one of AWS's most powerful and nuanced services. While basic DynamoDB knowledge (partition keys, sort keys, GSIs) is covered in Section 06, this section goes deep on **single-table design**, **access pattern modeling**, **advanced indexing strategies**, **cost optimization**, and **production best practices**. Mastering DynamoDB data modeling is essential for building scalable AWS applications.
 
 ## Key Concepts
 
@@ -262,7 +262,7 @@ graph LR
 5. **Use DAX** for read-heavy workloads (reduces RCU by 10x)
 6. **Batch operations** — BatchWriteItem (25 items) and BatchGetItem (100 items) are more efficient
 
-## Common Interview Questions
+## Knowledge Check
 
 ### Q1: What is single-table design and why is it recommended for DynamoDB?
 
@@ -432,7 +432,7 @@ Mitigation strategies for conflict-sensitive data:
 - **Write to one region** — use Global Tables for read scaling but funnel all writes through one region
 - **Application-level merge** — use DynamoDB Streams to detect conflicts and apply custom merge logic
 
-## Scenario-Based Questions
+## Real-World Scenarios
 
 ### S1: Your DynamoDB table scan for a daily report takes 45 minutes and consumes all RCU, throttling production reads. How do you fix this?
 
