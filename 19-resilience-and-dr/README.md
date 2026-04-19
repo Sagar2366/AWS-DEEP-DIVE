@@ -296,6 +296,102 @@ Chaos engineering service — intentionally inject failures to test resilience.
 
 **A:** **RDS Multi-AZ**: Synchronous replication to standby in another AZ. Failover: 60-120 seconds. Standby doesn't serve reads. Same region only. **Aurora Multi-AZ**: 6 copies across 3 AZs. Failover: < 30 seconds. Up to 15 read replicas serve reads. Same region. **Aurora Global Database**: Cross-region replication < 1 second. Supports up to 5 secondary regions. Secondary can be promoted to writer in < 1 minute. Use for multi-region DR and global read scaling. Each is a different resilience tier: RDS Multi-AZ = AZ failure protection. Aurora Multi-AZ = AZ failure + read scaling. Aurora Global = region failure protection.
 
+## Latest Updates (2025-2026)
+
+- **AWS Resilience Hub enhancements** — support for EKS workloads, cross-account assessment, and automated drift detection against resilience policies
+- **FIS scenario templates** — pre-built chaos experiments for common failure modes (AZ outage, network partition, DNS failure) with one-click execution
+- **Aurora Limitless for HA** — sharded Aurora that maintains high availability across shards with automatic failover per shard group
+- **Route 53 Application Recovery Controller** — zonal shift and zonal autoshift now GA, automatically moves traffic away from impaired AZs
+- **Multi-Region automation** — CloudFormation StackSets with drift detection and automatic remediation across DR regions
+
+### Q13: What is Route 53 Application Recovery Controller and how does it differ from standard failover?
+
+**A:** Application Recovery Controller (ARC) provides three capabilities beyond standard Route 53 failover: (1) **Readiness checks** — continuously validates that your DR region has the right capacity, configuration, and resources before failover. (2) **Routing controls** — manual failover switches that let you move traffic between cells/regions with safety interlocks (rules prevent disabling all routing controls). (3) **Zonal shift / zonal autoshift** — move traffic away from an impaired AZ within a region without full regional failover. Standard Route 53 failover only checks health and switches DNS. ARC adds readiness validation, safety guardrails, and sub-region (AZ-level) traffic management.
+
+### Q14: Explain cell-based architecture for blast radius reduction.
+
+**A:** Cell-based architecture divides your application into independent, isolated **cells** — each cell serves a subset of users/tenants and has its own compute, database, and dependencies. If one cell fails, only users in that cell are affected. Implementation on AWS: (1) Each cell is a separate VPC or account with full stack. (2) A **routing layer** (Route 53 + API Gateway) maps users to cells by tenant ID hash. (3) Cells share nothing — no cross-cell database calls. (4) **Cell size** limits blast radius (e.g., each cell serves max 10% of users). AWS uses this internally (e.g., each AZ in DynamoDB is a cell). Key tradeoff: more cells = smaller blast radius but higher operational overhead.
+
+### Q15: How do you implement automated multi-region failover with zero human intervention?
+
+**A:** (1) **Health checks** — Route 53 health checks monitor your primary region's endpoints every 10-30 seconds. (2) **Automated DNS failover** — Route 53 failover routing policy automatically switches to DR when health checks fail. (3) **Database promotion** — use Aurora Global Database with planned/unplanned failover APIs, triggered by a Lambda function when CloudWatch detects primary failure. (4) **Compute scaling** — EventBridge in DR region triggers ASG scaling policies when failover event fires. (5) **Verification** — Step Functions state machine validates DR is healthy post-failover before confirming. Risk: fully automated failover can trigger on false positives — most organizations automate detection but require one-click approval for execution.
+
+## Deep Dive Notes
+
+### DR Automation with Step Functions
+
+```mermaid
+flowchart TD
+    DETECT["CloudWatch Alarm:<br/>Primary Region Unhealthy"]
+    DETECT --> CW["EventBridge Rule<br/>triggers Step Functions"]
+    CW --> VERIFY["Step 1: Verify outage<br/>(cross-check multiple endpoints)"]
+    VERIFY -->|"Confirmed"| APPROVE{Auto or Manual?}
+    VERIFY -->|"False positive"| CANCEL["Cancel: reset alarm"]
+
+    APPROVE -->|"Auto"| FAILOVER["Step 2: Execute failover"]
+    APPROVE -->|"Manual"| NOTIFY["SNS: Page on-call<br/>for one-click approval"]
+    NOTIFY -->|"Approved"| FAILOVER
+
+    FAILOVER --> DB["2a: Promote Aurora<br/>Global DB in DR"]
+    FAILOVER --> DNS["2b: Update Route 53<br/>routing controls"]
+    FAILOVER --> SCALE["2c: Scale up ASG<br/>in DR region"]
+
+    DB --> VALIDATE["Step 3: Validate DR<br/>health + run smoke tests"]
+    DNS --> VALIDATE
+    SCALE --> VALIDATE
+
+    VALIDATE -->|"Healthy"| DONE["Failover complete:<br/>notify team"]
+    VALIDATE -->|"Unhealthy"| ROLLBACK["Rollback: restore<br/>original routing"]
+```
+
+### Multi-Region Data Consistency Patterns
+
+| Pattern | Consistency | RPO | Services | Tradeoff |
+|---------|------------|-----|----------|----------|
+| **Active-Passive with async replication** | Eventual | Seconds-minutes | Aurora Global DB, S3 CRR | Simple, but data loss possible during failover |
+| **Active-Active with conflict resolution** | Eventual + LWW | ~0 | DynamoDB Global Tables | No data loss, but last-writer-wins can cause conflicts |
+| **Active-Active with CRDT** | Strong eventual | ~0 | Custom (ElastiCache + app logic) | Complex to implement, no native AWS support |
+| **Synchronous multi-region** | Strong | 0 | Not practical at scale | Latency too high for cross-region sync writes |
+
+**Interview tip**: DynamoDB Global Tables is the only fully managed active-active multi-region database on AWS. Aurora Global Database is active-passive (one writer region). For active-active with Aurora, you'd need application-level conflict resolution.
+
+### Resilience Testing Maturity Model
+
+| Level | Practice | Tools | Frequency |
+|-------|----------|-------|-----------|
+| **1 — Basic** | Backup verification, manual failover test | AWS Backup restore test, RDS reboot | Quarterly |
+| **2 — Structured** | Automated DR drills, AZ failure simulation | FIS experiments, DRS drill | Monthly |
+| **3 — Advanced** | Chaos engineering in staging, game days | FIS + custom experiments, Resilience Hub | Bi-weekly |
+| **4 — Expert** | Chaos in production with safety controls, continuous resilience assessment | FIS in prod with stop conditions, Resilience Hub continuous | Weekly |
+| **5 — Culture** | Every team runs chaos experiments, resilience is part of CI/CD | FIS integrated into deployment pipeline | Every deploy |
+
+### Cell-Based Architecture on AWS
+
+```mermaid
+graph TB
+    ROUTER["Global Router<br/>(Route 53 + API Gateway)"]
+
+    ROUTER -->|"Tenant A-M"| CELL1["Cell 1<br/>us-east-1a"]
+    ROUTER -->|"Tenant N-Z"| CELL2["Cell 2<br/>us-east-1b"]
+    ROUTER -->|"Overflow"| CELL3["Cell 3<br/>us-west-2a"]
+
+    subgraph "Each Cell Contains"
+        ALB_C["ALB"]
+        ECS_C["ECS / EKS"]
+        DB_C["Aurora / DynamoDB"]
+        CACHE_C["ElastiCache"]
+    end
+
+    CELL1 --- ALB_C
+```
+
+Cell sizing guidelines:
+- **Max 5-10% of total traffic** per cell — limits blast radius
+- **Stateless compute** within cells — allows rebalancing
+- **Cell-local databases** — no cross-cell queries
+- **Shared nothing** — cells don't call each other
+- **Cell router** is the single shared component — must be highly available (multi-region, multi-AZ)
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

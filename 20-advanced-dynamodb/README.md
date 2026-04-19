@@ -312,6 +312,126 @@ graph LR
 
 **A:** (1) **Analyze access patterns** — list every SQL query your application makes. This is the most critical step because DynamoDB requires you to know queries in advance. (2) **Denormalize** — flatten JOINs into single items. An order + customer + items becomes one or two items, not three tables. (3) **Design the DynamoDB key schema** based on access patterns, not entities. (4) **Create GSIs** for secondary access patterns. (5) **Use DMS** to migrate data from RDS to DynamoDB. (6) **Test every access pattern** — DynamoDB doesn't support ad-hoc queries, so missing patterns require table redesign. Warning: if your workload is JOIN-heavy, highly relational, or requires complex aggregations, DynamoDB may not be the right choice — Aurora might be better.
 
+## Best Practices
+
+1. **Define ALL access patterns before designing the table** — DynamoDB doesn't support ad-hoc queries; missing a pattern may require table redesign
+2. **Choose high-cardinality partition keys** — avoid hot partitions by ensuring even distribution (user IDs, device IDs, not status codes)
+3. **Use composite sort keys** for hierarchical queries — `STATUS#CREATED_AT` enables filtering by status with date range
+4. **Limit GSIs to what you need** — each GSI duplicates data and consumes separate throughput; max 20 per table
+5. **Use sparse indexes** — GSIs only include items that have the indexed attribute, reducing cost and improving query efficiency
+6. **Enable auto-scaling or use on-demand** — avoid manual capacity management; switch to provisioned with auto-scaling once patterns stabilize
+7. **Set TTL on ephemeral data** — sessions, logs, and temp records should auto-expire at no WCU cost
+8. **Use DynamoDB Streams for change data capture** — trigger Lambda, replicate to OpenSearch, or sync to analytics
+9. **Keep items under 4 KB for reads, 1 KB for writes** — this aligns with RCU/WCU unit pricing for optimal cost
+10. **Monitor with CloudWatch** — track ConsumedReadCapacityUnits, ConsumedWriteCapacityUnits, ThrottledRequests, and SystemErrors
+
+## Latest Updates (2025-2026)
+
+- **DynamoDB zero-ETL integration with Redshift** — automatically replicate DynamoDB tables to Redshift for analytics without pipeline code
+- **Resource-based policies** — attach IAM policies directly to DynamoDB tables for cross-account access without assuming roles
+- **DynamoDB table class optimization** — Standard-Infrequent Access (Standard-IA) class reduces storage cost by 60% for cold data
+- **Warm throughput for on-demand** — pre-warm tables to previously achieved traffic levels, preventing throttling after idle periods
+- **Enhanced import/export** — incremental export to S3 (export only changed items since last export), reducing export time and cost
+- **Global Tables version 2019.11.21 improvements** — faster replication, improved conflict resolution metrics, and CloudWatch contributor insights
+
+### Q13: How does DynamoDB zero-ETL to Redshift work and when would you use it?
+
+**A:** Zero-ETL automatically replicates DynamoDB table data to Amazon Redshift without writing any ETL code. DynamoDB exports change data via Streams to Redshift, maintaining near-real-time sync. Use when: (1) You need SQL analytics on DynamoDB data (JOINs, aggregations, window functions). (2) Business analysts need BI tool access via Redshift/QuickSight. (3) You want to avoid building and maintaining Glue/Lambda ETL pipelines. Tradeoff: adds Redshift cost, slight replication lag (seconds to minutes). Alternative: DynamoDB export to S3 + Athena for less frequent, cheaper analytics.
+
+### Q14: When should you use DynamoDB Standard-IA table class?
+
+**A:** Standard-IA reduces storage cost by ~60% but increases read/write costs by ~25%. Use for tables where storage dominates cost: (1) Tables with large items (>4 KB) but low access frequency. (2) Audit logs, historical records, or compliance data accessed rarely. (3) Tables where storage cost is >50% of total table cost. Don't use for high-throughput tables where read/write costs dominate. Check the DynamoDB console's **Table Class Recommendations** which analyzes your actual usage patterns and recommends the optimal class.
+
+### Q15: Explain DynamoDB resource-based policies and cross-account access patterns.
+
+**A:** Resource-based policies let you attach IAM policies directly to a DynamoDB table, granting cross-account access without the target account needing to assume a role. Before this, cross-account access required: (1) Create IAM role in source account. (2) Grant assume-role to target account. (3) Target calls `sts:AssumeRole` then accesses DynamoDB. With resource-based policies: attach a policy to the table with `Principal: { "AWS": "arn:aws:iam::TARGET_ACCOUNT:role/role-name" }`. The target account accesses the table directly. Simpler for data sharing, data mesh architectures, and multi-account setups.
+
+## Deep Dive Notes
+
+### Single-Table Design Walkthrough: E-Commerce
+
+Access patterns for an e-commerce system:
+1. Get customer by ID
+2. Get all orders for a customer
+3. Get order by ID
+4. Get order items for an order
+5. Get all orders by status (e.g., "PENDING")
+
+Table design:
+
+| PK | SK | Attributes |
+|----|-----|------------|
+| `CUSTOMER#c1` | `PROFILE` | name, email, address |
+| `CUSTOMER#c1` | `ORDER#o1` | status, total, date |
+| `CUSTOMER#c1` | `ORDER#o2` | status, total, date |
+| `ORDER#o1` | `ITEM#i1` | product, qty, price |
+| `ORDER#o1` | `ITEM#i2` | product, qty, price |
+| `ORDER#o2` | `ITEM#i3` | product, qty, price |
+
+Query execution:
+- **Pattern 1**: `Query PK=CUSTOMER#c1, SK=PROFILE`
+- **Pattern 2**: `Query PK=CUSTOMER#c1, SK begins_with ORDER#`
+- **Pattern 3**: `Query PK=ORDER#o1, SK=META` (add a META item) or use GSI
+- **Pattern 4**: `Query PK=ORDER#o1, SK begins_with ITEM#`
+- **Pattern 5**: **GSI** with `GSI-PK=status, GSI-SK=date` (sparse index — only order items have status)
+
+### DynamoDB Streams vs Kinesis Data Streams for DynamoDB
+
+| Feature | DynamoDB Streams | Kinesis Data Streams for DynamoDB |
+|---------|-----------------|-----------------------------------|
+| **Retention** | 24 hours | 1-365 days |
+| **Consumers** | 2 simultaneous (Lambda + 1) | Unlimited via Enhanced Fan-Out |
+| **Throughput** | 2 reads/sec per shard | 2 MB/sec per consumer per shard |
+| **Ordering** | Per item | Per item (within shard) |
+| **Cost** | Free (included with table) | Kinesis pricing ($0.015/shard-hour) |
+| **Use Case** | Lambda triggers, replication | Multiple consumers, long retention, analytics |
+
+**Decision rule**: Use DynamoDB Streams when you have 1-2 consumers and need simple Lambda triggers. Use Kinesis for DynamoDB when you need >2 consumers, retention >24h, or high-throughput stream processing.
+
+### Cost Optimization Strategies
+
+```mermaid
+flowchart TD
+    START["DynamoDB Cost<br/>Optimization"]
+
+    START --> CAP["1. Right-size capacity"]
+    START --> STORAGE["2. Optimize storage"]
+    START --> ACCESS["3. Optimize access"]
+
+    CAP --> CAP_A["On-Demand: good for<br/>unpredictable traffic"]
+    CAP --> CAP_B["Provisioned + Auto-Scaling:<br/>20-30% cheaper at steady state"]
+    CAP --> CAP_C["Reserved Capacity:<br/>additional savings with commitment"]
+
+    STORAGE --> STOR_A["Standard-IA class<br/>for cold tables"]
+    STORAGE --> STOR_B["TTL for ephemeral data<br/>(free deletion)"]
+    STORAGE --> STOR_C["Compress large attributes<br/>before storing"]
+
+    ACCESS --> ACC_A["DAX for read-heavy<br/>workloads"]
+    ACCESS --> ACC_B["Eventually consistent reads<br/>(half the RCU)"]
+    ACCESS --> ACC_C["Batch operations<br/>(fewer API calls)"]
+    ACCESS --> ACC_D["Projection expressions<br/>(read only needed attributes)"]
+```
+
+Key cost levers:
+- **Eventually consistent reads** cost 50% less than strongly consistent — use by default unless you need strong consistency
+- **S3 Bucket Key pattern** for large items — store in S3, reference in DynamoDB (avoids 400 KB item limit and reduces WCU)
+- **GSI projections** — project only needed attributes into GSIs to reduce storage and read costs
+
+### Global Tables Conflict Resolution
+
+DynamoDB Global Tables use **last-writer-wins (LWW)** based on timestamp. When the same item is written in two regions simultaneously:
+
+1. Both writes succeed locally (no cross-region coordination on writes)
+2. Replication propagates both writes to the other region
+3. The write with the **later timestamp** wins in both regions
+4. The earlier write is silently overwritten
+
+Mitigation strategies for conflict-sensitive data:
+- **Region-affinity routing** — route each user/tenant to a specific "home" region for writes
+- **Optimistic locking** — use a `version` attribute with conditional writes (`attribute_not_exists` or `version = :expected`)
+- **Write to one region** — use Global Tables for read scaling but funnel all writes through one region
+- **Application-level merge** — use DynamoDB Streams to detect conflicts and apply custom merge logic
+
 ## Cheat Sheet
 
 | Concept | Key Facts |

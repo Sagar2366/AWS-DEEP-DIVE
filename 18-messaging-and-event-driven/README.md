@@ -360,6 +360,106 @@ For payloads exceeding SQS's 256 KB limit. Store the large payload in S3 and sen
 
 **A:** SQS FIFO caps at 3,000 messages/sec with batching per message group. For 50K/sec with ordering: use **Kinesis Data Streams** with enough shards (50K / 1000 records/sec per shard = ~50 shards). Kinesis guarantees ordering within each shard via partition key. Consumers use Enhanced Fan-Out for dedicated throughput. For exactly-once semantics, make consumers idempotent: use DynamoDB conditional writes with the sequence number as a dedup key. Alternative: **MSK (Managed Kafka)** with sufficient partitions — Kafka natively supports ordered, exactly-once processing with transactions.
 
+## Latest Updates (2025-2026)
+
+- **EventBridge Pipes GA enhancements** — support for Apache Kafka (self-managed) as source, API destinations as targets, and CloudWatch Logs enrichment
+- **SQS message-level encryption** — per-message KMS encryption alongside queue-level encryption, granular key control
+- **SNS FIFO delivery to more targets** — FIFO topics now support Kinesis Data Firehose subscriptions for ordered archive to S3
+- **MSK Serverless improvements** — automatic partition scaling, tiered storage GA reducing costs by up to 50% for cold data
+- **EventBridge Global Endpoints GA** — active-active event ingestion across two regions with automated failover and health-based routing
+- **SQS throughput increase** — FIFO queues now support up to 70,000 messages/sec with high-throughput mode (batched)
+
+### Q13: What are EventBridge Global Endpoints and when would you use them?
+
+**A:** Global Endpoints provide **active-active event ingestion** across two AWS regions. Events are sent to a single DNS endpoint, which routes to the primary region. If the primary's health check fails, EventBridge automatically routes events to the secondary region. Use for mission-critical event buses where regional outage can't cause event loss. Key: events are replicated to the secondary region, and a replication state machine ensures events aren't processed twice. This is different from multi-region SNS fan-out — Global Endpoints handle failover automatically with no client-side changes.
+
+### Q14: How does SQS FIFO high-throughput mode work?
+
+**A:** Standard FIFO queues support 300 messages/sec (3,000 with batching) per message group. High-throughput mode removes the per-group limit — the queue can process up to **70,000 messages/sec** across all message groups combined. Enable it by setting `DeduplicationScope=messageGroup` and `FifoThroughputLimit=perMessageGroupId`. Tradeoff: deduplication is now per message group (not queue-wide), so ensure your deduplication IDs are unique within each group. Use for high-volume FIFO workloads like financial transaction processing or event ordering systems.
+
+### Q15: When would you use MSK Serverless vs MSK Provisioned vs Kinesis Data Streams?
+
+**A:** **MSK Serverless**: Apache Kafka without managing brokers or capacity. Auto-scales partitions and throughput. Best for teams with Kafka expertise who want operational simplicity. **MSK Provisioned**: Full control over broker instance types, storage, and configuration. Best for high-throughput workloads needing fine-tuned Kafka settings or custom plugins. **Kinesis Data Streams**: AWS-native streaming, simpler API, integrates deeply with Lambda/Firehose/Analytics. Best for teams without Kafka expertise or workloads that benefit from AWS-native integrations. Key decision: if your team already uses Kafka, choose MSK. If starting fresh, Kinesis is simpler and cheaper at moderate scale.
+
+## Deep Dive Notes
+
+### Choreography vs Orchestration
+
+Two approaches to coordinating distributed services:
+
+```mermaid
+graph TB
+    subgraph "Choreography (EventBridge)"
+        C_ORDER["Order Service"] -->|"OrderCreated"| C_EB["EventBridge"]
+        C_EB --> C_PAY["Payment Service"]
+        C_PAY -->|"PaymentProcessed"| C_EB
+        C_EB --> C_INV["Inventory Service"]
+        C_INV -->|"InventoryReserved"| C_EB
+        C_EB --> C_SHIP["Shipping Service"]
+    end
+
+    subgraph "Orchestration (Step Functions)"
+        O_SF["Step Functions<br/>(Central orchestrator)"]
+        O_SF -->|"1"| O_PAY["Payment"]
+        O_SF -->|"2"| O_INV["Inventory"]
+        O_SF -->|"3"| O_SHIP["Shipping"]
+    end
+```
+
+| Factor | Choreography | Orchestration |
+|--------|-------------|---------------|
+| **Coupling** | Loose — services don't know about each other | Tighter — orchestrator knows all steps |
+| **Visibility** | Hard to trace end-to-end flow | Visual workflow in Step Functions console |
+| **Error Handling** | Each service handles its own errors + compensation | Centralized retry, catch, and compensation |
+| **Scaling** | Each service scales independently | Orchestrator can be a bottleneck |
+| **Best For** | Simple flows, high autonomy, many teams | Complex flows, strict ordering, compensation logic |
+| **AWS Service** | EventBridge + SQS | Step Functions |
+
+**Interview tip**: Most real systems use a hybrid — orchestration for critical business flows (order processing) and choreography for notifications and analytics.
+
+### EventBridge Schema Registry & Discovery
+
+Schema Registry automatically discovers event schemas from your event bus and generates code bindings:
+
+1. **Schema Discovery** — enable on any event bus; EventBridge infers JSON Schema from observed events
+2. **Schema Registry** — stores versioned schemas; supports OpenAPI 3.0 and JSON Schema Draft 4
+3. **Code Bindings** — generate typed models for Java, Python, and TypeScript from discovered schemas
+4. **Schema Versioning** — tracks schema changes automatically; enables backward compatibility checks
+
+Use this to enforce contracts between event producers and consumers without manual schema documentation.
+
+### Exactly-Once Processing Strategies
+
+| Strategy | How It Works | Tradeoffs |
+|----------|-------------|-----------|
+| **SQS FIFO** | Built-in deduplication within 5-min window | 3K msg/s limit (70K with high-throughput mode) |
+| **DynamoDB Conditional Writes** | `attribute_not_exists(messageId)` prevents reprocessing | Extra DynamoDB write per message |
+| **Idempotency Key in Redis** | Store processed IDs with TTL in ElastiCache | Fast but adds Redis dependency |
+| **Kafka Transactions (MSK)** | Producer transactions + consumer read-committed isolation | Complex setup, Kafka expertise required |
+| **Step Functions** | Express workflows with exactly-once execution semantics | Cost at high volume |
+
+Best practice: **always design for at-least-once delivery with idempotent consumers** — it works with every messaging service and handles edge cases gracefully.
+
+### Dead Letter Queue Operations Playbook
+
+```mermaid
+flowchart TD
+    DLQ["Message lands in DLQ"]
+    DLQ --> ALARM["CloudWatch Alarm fires<br/>(ApproximateNumberOfMessagesVisible > 0)"]
+    ALARM --> INSPECT["Inspect: Lambda reads DLQ<br/>messages and logs to CloudWatch"]
+    INSPECT --> DECIDE{Fixable?}
+    DECIDE -->|"Bug in consumer"| FIX["Fix consumer code,<br/>then DLQ Redrive"]
+    DECIDE -->|"Bad data"| ARCHIVE["Move to S3 for<br/>analysis, delete from DLQ"]
+    DECIDE -->|"Transient failure"| RETRY["DLQ Redrive back<br/>to source queue"]
+    FIX --> MONITOR["Monitor: ensure<br/>DLQ stays empty"]
+    RETRY --> MONITOR
+```
+
+Key metrics to alarm on:
+- **ApproximateNumberOfMessagesVisible** on DLQ > 0 (any message in DLQ)
+- **ApproximateAgeOfOldestMessage** on main queue > threshold (processing stalled)
+- **NumberOfMessagesSent** to DLQ > N/hour (systemic failure)
+
 ## Cheat Sheet
 
 | Concept | Key Facts |
