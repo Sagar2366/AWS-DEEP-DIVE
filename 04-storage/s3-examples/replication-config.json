@@ -1,0 +1,146 @@
+{
+  "Description": "S3 Cross-Region Replication (CRR) and Same-Region Replication (SRR) configurations",
+
+  "Prerequisites": {
+    "Note": "Replication requires: (1) Versioning enabled on BOTH source and destination buckets, (2) IAM role granting S3 permission to replicate, (3) Destination bucket must exist",
+    "EnableVersioning": "aws s3api put-bucket-versioning --bucket SOURCE-BUCKET --versioning-configuration Status=Enabled"
+  },
+
+  "Example1_CrossRegionReplication": {
+    "Description": "Replicate all objects from us-east-1 to eu-west-1 for disaster recovery",
+    "ReplicationConfiguration": {
+      "Role": "arn:aws:iam::123456789012:role/S3ReplicationRole",
+      "Rules": [
+        {
+          "ID": "FullBucketCRR",
+          "Status": "Enabled",
+          "Filter": {
+            "Prefix": ""
+          },
+          "Destination": {
+            "Bucket": "arn:aws:s3:::my-dr-bucket-eu",
+            "StorageClass": "STANDARD_IA",
+            "EncryptionConfiguration": {
+              "ReplicaKmsKeyID": "arn:aws:kms:eu-west-1:123456789012:key/dr-key-id"
+            }
+          },
+          "DeleteMarkerReplication": {
+            "Status": "Enabled"
+          }
+        }
+      ]
+    }
+  },
+
+  "Example2_PrefixBasedReplication": {
+    "Description": "Only replicate objects under 'critical/' prefix",
+    "ReplicationConfiguration": {
+      "Role": "arn:aws:iam::123456789012:role/S3ReplicationRole",
+      "Rules": [
+        {
+          "ID": "CriticalDataOnly",
+          "Status": "Enabled",
+          "Filter": {
+            "Prefix": "critical/"
+          },
+          "Destination": {
+            "Bucket": "arn:aws:s3:::my-critical-backup"
+          }
+        }
+      ]
+    }
+  },
+
+  "Example3_CrossAccountReplication": {
+    "Description": "Replicate to a bucket in another AWS account (for security — backup account can't be compromised by primary)",
+    "ReplicationConfiguration": {
+      "Role": "arn:aws:iam::111111111111:role/S3CrossAccountReplicationRole",
+      "Rules": [
+        {
+          "ID": "CrossAccountDR",
+          "Status": "Enabled",
+          "Filter": {
+            "Prefix": ""
+          },
+          "Destination": {
+            "Bucket": "arn:aws:s3:::backup-account-bucket",
+            "Account": "222222222222",
+            "AccessControlTranslation": {
+              "Owner": "Destination"
+            }
+          }
+        }
+      ]
+    },
+    "DestinationBucketPolicyNeeded": {
+      "Description": "Destination bucket must have a policy allowing the source account's replication role to write",
+      "Statement": [
+        {
+          "Sid": "AllowCrossAccountReplication",
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "arn:aws:iam::111111111111:role/S3CrossAccountReplicationRole"
+          },
+          "Action": [
+            "s3:ReplicateObject",
+            "s3:ReplicateDelete",
+            "s3:ObjectOwnerOverrideToBucketOwner"
+          ],
+          "Resource": "arn:aws:s3:::backup-account-bucket/*"
+        }
+      ]
+    }
+  },
+
+  "IAM_ReplicationRole": {
+    "Description": "IAM role that S3 assumes to perform replication",
+    "TrustPolicy": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "s3.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole"
+        }
+      ]
+    },
+    "PermissionsPolicy": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "s3:GetReplicationConfiguration",
+            "s3:ListBucket",
+            "s3:GetObjectVersionForReplication",
+            "s3:GetObjectVersionAcl",
+            "s3:GetObjectVersionTagging"
+          ],
+          "Resource": [
+            "arn:aws:s3:::source-bucket",
+            "arn:aws:s3:::source-bucket/*"
+          ]
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "s3:ReplicateObject",
+            "s3:ReplicateDelete",
+            "s3:ReplicateTags"
+          ],
+          "Resource": "arn:aws:s3:::destination-bucket/*"
+        }
+      ]
+    }
+  },
+
+  "AWS_CLI_Commands": {
+    "SetReplication": "aws s3api put-bucket-replication --bucket source-bucket --replication-configuration file://replication.json",
+    "GetReplication": "aws s3api get-bucket-replication --bucket source-bucket",
+    "BatchReplicateExisting": "aws s3control create-job --account-id 123456789012 --operation '{\"S3ReplicateObject\": {}}' --manifest ... (S3 Batch Replication for existing objects)"
+  },
+
+  "InterviewTip": "Key facts: (1) Replication is asynchronous. (2) Only NEW objects are replicated — use S3 Batch Replication for existing objects. (3) Versioning is required on both buckets. (4) Delete markers CAN be replicated (opt-in). (5) CRR is for DR and compliance; SRR is for log aggregation and cross-account copies. (6) Replication Time Control (RTC) guarantees 99.99% of objects replicated within 15 minutes (costs extra)."
+}

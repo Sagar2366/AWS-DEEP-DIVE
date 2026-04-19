@@ -1,0 +1,106 @@
+{
+  "Description": "S3 event notification configurations — trigger Lambda, SQS, or SNS on object events",
+
+  "Example1_LambdaTriggerOnUpload": {
+    "Description": "Trigger a Lambda function when any object is uploaded (created) — most common pattern for image processing, thumbnails, etc.",
+    "NotificationConfiguration": {
+      "LambdaFunctionConfigurations": [
+        {
+          "Id": "ProcessNewImage",
+          "LambdaFunctionArn": "arn:aws:lambda:us-east-1:123456789012:function:ProcessImage",
+          "Events": [
+            "s3:ObjectCreated:*"
+          ],
+          "Filter": {
+            "Key": {
+              "FilterRules": [
+                {
+                  "Name": "prefix",
+                  "Value": "uploads/"
+                },
+                {
+                  "Name": "suffix",
+                  "Value": ".jpg"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "LambdaPermissionNeeded": "aws lambda add-permission --function-name ProcessImage --principal s3.amazonaws.com --action lambda:InvokeFunction --source-arn arn:aws:s3:::my-bucket --statement-id S3InvokePermission"
+  },
+
+  "Example2_SQSOnDelete": {
+    "Description": "Send a message to SQS when an object is deleted — useful for audit trails and cascading deletes",
+    "NotificationConfiguration": {
+      "QueueConfigurations": [
+        {
+          "Id": "AuditDeletes",
+          "QueueArn": "arn:aws:sqs:us-east-1:123456789012:delete-audit-queue",
+          "Events": [
+            "s3:ObjectRemoved:*"
+          ]
+        }
+      ]
+    }
+  },
+
+  "Example3_SNSFanOut": {
+    "Description": "Publish to SNS topic on any object event — fans out to multiple subscribers (Lambda, SQS, email)",
+    "NotificationConfiguration": {
+      "TopicConfigurations": [
+        {
+          "Id": "NotifyAllChanges",
+          "TopicArn": "arn:aws:sns:us-east-1:123456789012:s3-events-topic",
+          "Events": [
+            "s3:ObjectCreated:*",
+            "s3:ObjectRemoved:*"
+          ]
+        }
+      ]
+    }
+  },
+
+  "Example4_EventBridgeIntegration": {
+    "Description": "Send ALL S3 events to EventBridge for advanced filtering and routing — more flexible than native S3 notifications",
+    "NotificationConfiguration": {
+      "EventBridgeConfiguration": {}
+    },
+    "EventBridgeRuleExample": {
+      "Source": ["aws.s3"],
+      "DetailType": ["Object Created"],
+      "Detail": {
+        "bucket": {
+          "name": ["my-data-bucket"]
+        },
+        "object": {
+          "key": [{
+            "prefix": "data/"
+          }]
+        }
+      }
+    },
+    "WhyEventBridge": "EventBridge supports content-based filtering (object size, metadata), can route to 20+ target types, and supports archive/replay. Use EventBridge over native S3 notifications when you need complex routing."
+  },
+
+  "EventTypes": {
+    "s3:ObjectCreated:*": "Any object creation (Put, Post, Copy, CompleteMultipartUpload)",
+    "s3:ObjectCreated:Put": "Only PutObject calls",
+    "s3:ObjectRemoved:*": "Any deletion (Delete, DeleteMarkerCreated)",
+    "s3:ObjectRestore:Post": "Glacier restore initiated",
+    "s3:ObjectRestore:Completed": "Glacier restore completed",
+    "s3:Replication:*": "Replication events (completed, failed, exceeded 15 min)",
+    "s3:LifecycleTransition": "Object transitioned by lifecycle rule",
+    "s3:IntelligentTiering": "Object moved between Intelligent-Tiering access tiers",
+    "s3:ObjectTagging:*": "Tags added or deleted",
+    "s3:ObjectAcl:Put": "ACL changed on object"
+  },
+
+  "AWS_CLI_Commands": {
+    "SetNotification": "aws s3api put-bucket-notification-configuration --bucket my-bucket --notification-configuration file://notification.json",
+    "GetNotification": "aws s3api get-bucket-notification-configuration --bucket my-bucket"
+  },
+
+  "InterviewTip": "S3 event notifications are the backbone of event-driven architectures. Key points: (1) Native notifications go to Lambda, SQS, or SNS directly. (2) EventBridge gives more flexibility (content filtering, 20+ targets). (3) You can only have ONE notification configuration per bucket (but it can have multiple rules). (4) Notifications are best-effort — for guaranteed delivery, use EventBridge with DLQ."
+}

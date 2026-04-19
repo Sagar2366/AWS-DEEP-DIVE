@@ -1,0 +1,100 @@
+{
+  "Description": "S3 encryption configurations — from default SSE-S3 to customer-managed KMS keys",
+
+  "Example1_DefaultSSE_S3": {
+    "Description": "Default encryption with Amazon S3-managed keys (SSE-S3) — simplest option, zero cost, recommended as baseline",
+    "BucketEncryptionConfig": {
+      "Rules": [
+        {
+          "ApplyServerSideEncryptionByDefault": {
+            "SSEAlgorithm": "AES256"
+          },
+          "BucketKeyEnabled": true
+        }
+      ]
+    }
+  },
+
+  "Example2_SSE_KMS_AWSManagedKey": {
+    "Description": "Encryption with AWS-managed KMS key (aws/s3) — adds CloudTrail audit of key usage",
+    "BucketEncryptionConfig": {
+      "Rules": [
+        {
+          "ApplyServerSideEncryptionByDefault": {
+            "SSEAlgorithm": "aws:kms",
+            "KMSMasterKeyID": "aws/s3"
+          },
+          "BucketKeyEnabled": true
+        }
+      ]
+    }
+  },
+
+  "Example3_SSE_KMS_CustomerManagedKey": {
+    "Description": "Encryption with customer-managed KMS key (CMK) — full control over key policies, rotation, and access. Required for strict compliance",
+    "BucketEncryptionConfig": {
+      "Rules": [
+        {
+          "ApplyServerSideEncryptionByDefault": {
+            "SSEAlgorithm": "aws:kms",
+            "KMSMasterKeyID": "arn:aws:kms:us-east-1:123456789012:key/a1b2c3d4-5678-90ab-cdef-example11111"
+          },
+          "BucketKeyEnabled": true
+        }
+      ]
+    },
+    "KMS_Key_Policy": {
+      "Description": "The KMS key policy must grant the S3 service access to use the key",
+      "Statement": [
+        {
+          "Sid": "AllowS3ToUseKey",
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "arn:aws:iam::123456789012:root"
+          },
+          "Action": [
+            "kms:Encrypt",
+            "kms:Decrypt",
+            "kms:GenerateDataKey"
+          ],
+          "Resource": "*"
+        }
+      ]
+    }
+  },
+
+  "EncryptionComparison": {
+    "SSE-S3": {
+      "Key Management": "AWS manages everything",
+      "Audit Trail": "No (key usage not logged)",
+      "Cost": "Free",
+      "Best For": "Default encryption, no compliance requirements"
+    },
+    "SSE-KMS (AWS managed key)": {
+      "Key Management": "AWS manages key, you see it in KMS",
+      "Audit Trail": "Yes — every use logged in CloudTrail",
+      "Cost": "$0.03/10K requests (S3 Bucket Key reduces this 99%)",
+      "Best For": "Audit requirements without key management overhead"
+    },
+    "SSE-KMS (Customer managed key)": {
+      "Key Management": "You manage key policies, rotation, grants",
+      "Audit Trail": "Yes — full CloudTrail logging",
+      "Cost": "$1/month per key + $0.03/10K requests",
+      "Best For": "Strict compliance (HIPAA, PCI, financial regulations)"
+    },
+    "SSE-C": {
+      "Key Management": "Customer provides key with every request",
+      "Audit Trail": "No (AWS never stores the key)",
+      "Cost": "Free",
+      "Best For": "Rare — when you must control the key entirely"
+    }
+  },
+
+  "AWS_CLI_Commands": {
+    "SetDefaultEncryption": "aws s3api put-bucket-encryption --bucket my-bucket --server-side-encryption-configuration '{\"Rules\": [{\"ApplyServerSideEncryptionByDefault\": {\"SSEAlgorithm\": \"aws:kms\"}, \"BucketKeyEnabled\": true}]}'",
+    "CheckEncryption": "aws s3api get-bucket-encryption --bucket my-bucket",
+    "UploadWithKMS": "aws s3 cp file.txt s3://my-bucket/ --sse aws:kms --sse-kms-key-id alias/my-key"
+  },
+
+  "InterviewTip": "BucketKeyEnabled is a key optimization — it reduces KMS API calls (and cost) by 99% by generating a bucket-level key from your KMS key. Always enable it with SSE-KMS. Since Jan 2023, S3 automatically encrypts all new objects with SSE-S3 by default — but you should still explicitly configure encryption to enforce your chosen algorithm via bucket policy."
+}

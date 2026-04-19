@@ -1,0 +1,125 @@
+{
+  "Description": "S3 lifecycle rules to automatically transition and expire objects — the #1 cost optimization technique for S3",
+
+  "Example1_StandardLifecycle": {
+    "Description": "Typical cost-optimized lifecycle: Standard → IA → Glacier → Deep Archive → Delete",
+    "Rules": [
+      {
+        "ID": "TransitionToIA",
+        "Filter": {
+          "Prefix": ""
+        },
+        "Status": "Enabled",
+        "Transitions": [
+          {
+            "Days": 30,
+            "StorageClass": "STANDARD_IA"
+          },
+          {
+            "Days": 90,
+            "StorageClass": "GLACIER_IR"
+          },
+          {
+            "Days": 180,
+            "StorageClass": "DEEP_ARCHIVE"
+          }
+        ],
+        "Expiration": {
+          "Days": 2555
+        },
+        "NoncurrentVersionTransitions": [
+          {
+            "NoncurrentDays": 30,
+            "StorageClass": "STANDARD_IA"
+          },
+          {
+            "NoncurrentDays": 60,
+            "StorageClass": "DEEP_ARCHIVE"
+          }
+        ],
+        "NoncurrentVersionExpiration": {
+          "NoncurrentDays": 365
+        }
+      }
+    ]
+  },
+
+  "Example2_LogBucketCleanup": {
+    "Description": "Delete log files after 90 days and clean up incomplete multipart uploads",
+    "Rules": [
+      {
+        "ID": "DeleteOldLogs",
+        "Filter": {
+          "Prefix": "logs/"
+        },
+        "Status": "Enabled",
+        "Expiration": {
+          "Days": 90
+        }
+      },
+      {
+        "ID": "CleanupMultipartUploads",
+        "Filter": {
+          "Prefix": ""
+        },
+        "Status": "Enabled",
+        "AbortIncompleteMultipartUpload": {
+          "DaysAfterInitiation": 7
+        }
+      }
+    ]
+  },
+
+  "Example3_IntelligentTiering": {
+    "Description": "Auto-enroll all new objects into S3 Intelligent-Tiering (best for unknown access patterns)",
+    "Rules": [
+      {
+        "ID": "MoveToIntelligentTiering",
+        "Filter": {
+          "Prefix": ""
+        },
+        "Status": "Enabled",
+        "Transitions": [
+          {
+            "Days": 0,
+            "StorageClass": "INTELLIGENT_TIERING"
+          }
+        ]
+      }
+    ]
+  },
+
+  "Example4_ComplianceRetention": {
+    "Description": "7-year retention for financial/regulatory data: keep in Glacier, transition to Deep Archive, never delete before 2555 days",
+    "Rules": [
+      {
+        "ID": "ComplianceArchival",
+        "Filter": {
+          "Prefix": "financial-records/"
+        },
+        "Status": "Enabled",
+        "Transitions": [
+          {
+            "Days": 1,
+            "StorageClass": "GLACIER_IR"
+          },
+          {
+            "Days": 365,
+            "StorageClass": "DEEP_ARCHIVE"
+          }
+        ],
+        "Expiration": {
+          "Days": 2555
+        }
+      }
+    ]
+  },
+
+  "AWS_CLI_Commands": {
+    "ApplyLifecycle": "aws s3api put-bucket-lifecycle-configuration --bucket my-bucket --lifecycle-configuration file://lifecycle.json",
+    "ViewLifecycle": "aws s3api get-bucket-lifecycle-configuration --bucket my-bucket",
+    "DeleteLifecycle": "aws s3api delete-bucket-lifecycle --bucket my-bucket"
+  },
+
+  "InterviewTip": "Lifecycle rules are the most impactful S3 cost optimization. Key limits: min 30 days before transition to IA, min 90 days for Glacier tiers. Transition to IA has a 128 KB min object size charge. Always add 'AbortIncompleteMultipartUpload' — incomplete uploads are a hidden cost."
+}

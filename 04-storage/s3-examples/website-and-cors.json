@@ -1,0 +1,110 @@
+{
+  "Description": "S3 static website hosting and CORS configuration examples",
+
+  "Example1_StaticWebsiteHosting": {
+    "Description": "Host a static website (React, Angular, Vue) on S3 behind CloudFront",
+    "WebsiteConfiguration": {
+      "IndexDocument": {
+        "Suffix": "index.html"
+      },
+      "ErrorDocument": {
+        "Key": "error.html"
+      }
+    },
+    "BucketPolicy": {
+      "Description": "CloudFront Origin Access Control policy — only CloudFront can access the bucket",
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "AllowCloudFrontServicePrincipal",
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "cloudfront.amazonaws.com"
+          },
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::my-website-bucket/*",
+          "Condition": {
+            "StringEquals": {
+              "AWS:SourceArn": "arn:aws:cloudfront::123456789012:distribution/E1A2B3C4D5E6F7"
+            }
+          }
+        }
+      ]
+    }
+  },
+
+  "Example2_CORS_APIAccess": {
+    "Description": "Allow a frontend app (https://myapp.example.com) to make API requests to S3 (e.g., direct uploads via presigned URLs)",
+    "CORSConfiguration": [
+      {
+        "AllowedHeaders": [
+          "*"
+        ],
+        "AllowedMethods": [
+          "GET",
+          "PUT",
+          "POST"
+        ],
+        "AllowedOrigins": [
+          "https://myapp.example.com"
+        ],
+        "ExposeHeaders": [
+          "ETag",
+          "x-amz-request-id"
+        ],
+        "MaxAgeSeconds": 3600
+      }
+    ]
+  },
+
+  "Example3_CORS_MultipleOrigins": {
+    "Description": "Allow multiple origins (dev, staging, prod) to access S3",
+    "CORSConfiguration": [
+      {
+        "AllowedHeaders": ["*"],
+        "AllowedMethods": ["GET"],
+        "AllowedOrigins": [
+          "https://prod.example.com",
+          "https://staging.example.com",
+          "http://localhost:3000"
+        ],
+        "MaxAgeSeconds": 86400
+      }
+    ]
+  },
+
+  "Example4_PresignedURL_Upload": {
+    "Description": "Generate a presigned URL for direct client-to-S3 upload — no server proxy needed",
+    "Python_Boto3": "import boto3\n\ns3 = boto3.client('s3')\n\nurl = s3.generate_presigned_url(\n    'put_object',\n    Params={\n        'Bucket': 'my-upload-bucket',\n        'Key': 'uploads/user123/photo.jpg',\n        'ContentType': 'image/jpeg'\n    },\n    ExpiresIn=3600  # 1 hour\n)\n\nprint(url)  # Give this URL to the frontend",
+    "AWS_CLI": "aws s3 presign s3://my-bucket/file.txt --expires-in 3600"
+  },
+
+  "Example5_PresignedURL_Download": {
+    "Description": "Generate a presigned URL for temporary download access to a private object",
+    "Python_Boto3": "import boto3\n\ns3 = boto3.client('s3')\n\nurl = s3.generate_presigned_url(\n    'get_object',\n    Params={\n        'Bucket': 'my-private-bucket',\n        'Key': 'reports/quarterly-2024.pdf'\n    },\n    ExpiresIn=900  # 15 minutes\n)\n\nprint(url)",
+    "Note": "Presigned URLs inherit the permissions of the IAM user/role that created them. They expire after the specified time."
+  },
+
+  "StaticWebsite_Architecture": {
+    "Description": "Production static website architecture",
+    "Flow": "Route 53 (custom domain) → CloudFront (CDN + HTTPS + WAF) → S3 (origin, private, OAC) → API Gateway (for dynamic APIs)",
+    "Steps": [
+      "1. Create S3 bucket (Block Public Access ON — CloudFront handles access)",
+      "2. Upload built frontend (npm run build → upload dist/ to S3)",
+      "3. Create CloudFront distribution with S3 origin + Origin Access Control",
+      "4. Add custom domain in CloudFront + ACM certificate (us-east-1)",
+      "5. Create Route 53 alias record pointing to CloudFront",
+      "6. Add WAF Web ACL to CloudFront for security",
+      "7. Set up CloudFront cache invalidation in CI/CD (after deploy)"
+    ]
+  },
+
+  "AWS_CLI_Commands": {
+    "EnableWebsite": "aws s3 website s3://my-bucket/ --index-document index.html --error-document error.html",
+    "SetCORS": "aws s3api put-bucket-cors --bucket my-bucket --cors-configuration file://cors.json",
+    "SyncBuild": "aws s3 sync ./dist s3://my-website-bucket --delete",
+    "InvalidateCache": "aws cloudfront create-invalidation --distribution-id E1A2B3C4D5E6F7 --paths '/*'"
+  },
+
+  "InterviewTip": "The S3 + CloudFront static website pattern is asked in almost every interview. Key points: (1) NEVER enable S3 website hosting endpoint for production — use CloudFront + OAC instead (HTTPS, caching, WAF). (2) S3 website endpoint is HTTP only. (3) Use presigned URLs for private file access, not public buckets. (4) CORS is needed when your frontend domain differs from S3/API domain."
+}

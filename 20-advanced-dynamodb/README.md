@@ -1,0 +1,338 @@
+# Advanced DynamoDB Patterns
+
+## Overview
+
+DynamoDB is one of the most frequently tested services in AWS interviews, especially for Solutions Architect and Senior Engineer roles. While basic DynamoDB knowledge (partition keys, sort keys, GSIs) is covered in Section 06, this section goes deep on **single-table design**, **access pattern modeling**, **advanced indexing strategies**, **cost optimization**, and **production best practices**. Mastering DynamoDB data modeling is a differentiator in interviews.
+
+## Key Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Single-Table Design** | Store all entity types in one table using overloaded keys and GSIs |
+| **Access Pattern** | A specific query your application needs to perform (e.g., "get all orders for user X") |
+| **Composite Key** | Partition Key + Sort Key together form the primary key |
+| **Overloaded Keys** | Using generic key names (PK, SK) that hold different entity types |
+| **Sparse Index** | GSI where only some items have the indexed attributes — reduces index size |
+| **Adjacent Item Pattern** | Related items share a partition key with different sort keys |
+| **Write Sharding** | Appending random suffix to partition key to distribute hot partitions |
+
+## Architecture Diagram
+
+### Single-Table Design Example (E-Commerce)
+
+```mermaid
+graph TB
+    subgraph "Single Table: ECommerce"
+        T["Table: ECommerce<br/>PK (Partition Key) | SK (Sort Key)"]
+
+        subgraph "User Entity"
+            U1["PK: USER#u1<br/>SK: PROFILE<br/>name, email, created"]
+            U2["PK: USER#u1<br/>SK: ADDRESS#home<br/>street, city, zip"]
+            U3["PK: USER#u1<br/>SK: ADDRESS#work<br/>street, city, zip"]
+        end
+
+        subgraph "Order Entity"
+            O1["PK: USER#u1<br/>SK: ORDER#2024-01-15#o1<br/>total, status"]
+            O2["PK: USER#u1<br/>SK: ORDER#2024-02-20#o2<br/>total, status"]
+        end
+
+        subgraph "Order Items"
+            OI1["PK: ORDER#o1<br/>SK: ITEM#i1<br/>product, qty, price"]
+            OI2["PK: ORDER#o1<br/>SK: ITEM#i2<br/>product, qty, price"]
+        end
+
+        subgraph "Product Entity"
+            P1["PK: PRODUCT#p1<br/>SK: METADATA<br/>name, price, category"]
+        end
+    end
+
+    subgraph "GSI-1: Inverted Index"
+        GSI1["GSI1-PK: SK | GSI1-SK: PK<br/>Enables: Get all users who ordered product X"]
+    end
+
+    subgraph "GSI-2: By Status"
+        GSI2["GSI2-PK: status | GSI2-SK: created<br/>Enables: Get all pending orders sorted by date"]
+    end
+```
+
+## Deep Dive
+
+### Single-Table Design Principles
+
+Single-table design stores multiple entity types (users, orders, products) in one DynamoDB table, using overloaded partition and sort keys. This is the recommended pattern for DynamoDB.
+
+#### Why Single-Table?
+
+| Benefit | Explanation |
+|---------|-------------|
+| **Fewer round-trips** | Fetch related entities in one query (user + addresses + recent orders) |
+| **Transaction support** | TransactWriteItems works across items in one or more tables in the same region |
+| **Lower cost** | One table = one set of capacity settings, fewer GSIs to maintain |
+| **Simpler operations** | One table to backup, monitor, and manage |
+| **DynamoDB was designed for this** | The data model is optimized for single-table patterns |
+
+#### When NOT to Use Single-Table
+
+| Scenario | Use Multi-Table Instead |
+|----------|----------------------|
+| Teams own different entities independently | Separate tables per team/microservice |
+| Access patterns are completely independent | No benefit from co-location |
+| You're new to DynamoDB | Start with one entity per table, graduate to single-table |
+| Data has vastly different access volumes | Separate tables allow independent capacity settings |
+
+### Data Modeling Process
+
+```mermaid
+graph TD
+    AP["1. List ALL Access Patterns<br/>(BEFORE designing the table)"]
+    AP --> ENTITIES["2. Identify Entities<br/>(User, Order, Product, etc.)"]
+    ENTITIES --> KEYS["3. Design Primary Key<br/>(PK + SK for adjacency)"]
+    KEYS --> GSI["4. Design GSIs<br/>(For access patterns not<br/>served by primary key)"]
+    GSI --> VALIDATE["5. Validate Against<br/>Every Access Pattern"]
+    VALIDATE --> OPTIMIZE["6. Optimize<br/>(Sparse indexes, projections)"]
+```
+
+### Step 1: Define Access Patterns
+
+**This is the most critical step.** List every query before designing the table.
+
+| # | Access Pattern | Parameters | Frequency |
+|---|---------------|------------|-----------|
+| 1 | Get user profile | user_id | High |
+| 2 | Get user's addresses | user_id | Medium |
+| 3 | Get user's orders (newest first) | user_id | High |
+| 4 | Get order details with items | order_id | High |
+| 5 | Get orders by status | status | Medium |
+| 6 | Get product details | product_id | High |
+| 7 | Get all orders for a product | product_id | Low |
+
+### Step 2: Design the Key Schema
+
+```
+Table: ECommerce
+- PK (Partition Key): String
+- SK (Sort Key): String
+```
+
+| Entity | PK | SK | Attributes |
+|--------|----|----|------------|
+| User Profile | `USER#<user_id>` | `PROFILE` | name, email, created |
+| User Address | `USER#<user_id>` | `ADDRESS#<type>` | street, city, zip |
+| Order | `USER#<user_id>` | `ORDER#<date>#<order_id>` | total, status, GSI1-PK: `ORDER#<order_id>` |
+| Order Item | `ORDER#<order_id>` | `ITEM#<item_id>` | product_id, qty, price |
+| Product | `PRODUCT#<product_id>` | `METADATA` | name, price, category |
+
+### Step 3: Map Access Patterns to Queries
+
+| Access Pattern | Query |
+|---------------|-------|
+| Get user profile | `PK = USER#u1, SK = PROFILE` |
+| Get user's addresses | `PK = USER#u1, SK begins_with ADDRESS#` |
+| Get user + addresses + orders | `PK = USER#u1` (returns all items for this user) |
+| Get user's orders (newest first) | `PK = USER#u1, SK begins_with ORDER#, ScanIndexForward=false` |
+| Get order items | `PK = ORDER#o1, SK begins_with ITEM#` |
+| Get product | `PK = PRODUCT#p1, SK = METADATA` |
+
+### Step 4: Design GSIs
+
+| GSI | PK | SK | Purpose |
+|-----|----|----|---------|
+| **GSI-1 (Inverted)** | SK | PK | Get order by order_id, get all items for a product |
+| **GSI-2 (By Status)** | status | created | Get all orders by status (sparse — only order items have status) |
+
+### Advanced Indexing Strategies
+
+#### Sparse Indexes
+
+```mermaid
+graph LR
+    TABLE["Main Table<br/>1 million items"]
+    TABLE --> GSI_SPARSE["GSI: 'status' (PK)<br/>Only items WITH 'status'<br/>attribute are indexed<br/>(50K items — much smaller!)"]
+```
+
+If only a subset of items has the indexed attribute, the GSI only contains those items. This reduces GSI storage cost and improves query speed. Example: only orders have a `status` attribute, so the GSI on `status` only contains orders, not users or products.
+
+#### Overloaded GSI
+
+Use one GSI to serve multiple access patterns by overloading its key attributes:
+
+| Entity | GSI-PK | GSI-SK | Purpose |
+|--------|--------|--------|---------|
+| Order | `ORDER#<id>` | `USER#<user_id>` | Look up order → find user |
+| Product | `CATEGORY#<cat>` | `PRICE#<price>` | Browse products by category, sorted by price |
+| User | `EMAIL#<email>` | `USER#<id>` | Look up user by email |
+
+#### Write Sharding for Hot Partitions
+
+```mermaid
+graph LR
+    subgraph "Problem: Hot Partition"
+        HOT["PK: STATUS#active<br/>10,000 writes/sec<br/>Single partition overloaded"]
+    end
+
+    subgraph "Solution: Write Sharding"
+        SHARD1["PK: STATUS#active#0"]
+        SHARD2["PK: STATUS#active#1"]
+        SHARD3["PK: STATUS#active#2"]
+        SHARDN["PK: STATUS#active#N<br/>Writes distributed<br/>across N partitions"]
+    end
+```
+
+Append a random suffix (0-N) to the partition key. Reads must scatter-gather across all shards. Use when a single partition key receives too many writes (> 1000 WCU/sec per partition).
+
+### DynamoDB Capacity and Performance
+
+#### Partition Behavior
+
+| Metric | Value |
+|--------|-------|
+| **Max partition size** | 10 GB |
+| **Max throughput per partition** | 3000 RCU + 1000 WCU |
+| **Adaptive capacity** | Automatically redistributes throughput to hot partitions |
+| **Burst capacity** | 5 minutes of unused throughput saved for spikes |
+
+#### On-Demand vs Provisioned
+
+| Factor | On-Demand | Provisioned |
+|--------|-----------|-------------|
+| **Pricing** | Per request (~$1.25/million writes, ~$0.25/million reads) | Per RCU/WCU per hour |
+| **Capacity Planning** | None needed | Must estimate or use auto-scaling |
+| **Cost at Scale** | ~5-7x more expensive than provisioned at steady state | Cheapest for predictable workloads |
+| **Burst Handling** | Doubles previous peak instantly | Auto-scaling takes 5-15 minutes to react |
+| **Best For** | Unpredictable/spiky traffic, new apps | Predictable traffic, cost-sensitive at scale |
+
+**Cost optimization**: Start with On-Demand for new tables. After 2-4 weeks of CloudWatch data, switch to Provisioned with auto-scaling for steady-state tables. On-Demand tables that consistently use > 20% of their peak capacity are usually cheaper as Provisioned.
+
+### DynamoDB Transactions
+
+| Feature | Detail |
+|---------|--------|
+| **TransactWriteItems** | Atomic write of up to 100 items across tables |
+| **TransactGetItems** | Consistent read of up to 100 items across tables |
+| **Cost** | 2x the RCU/WCU of standard operations |
+| **Use Cases** | Financial transfers, inventory reservation, deduplication |
+| **Limitations** | 100 items max, 4 MB total, all items in same region |
+| **Idempotency** | Use ClientRequestToken for exactly-once semantics |
+
+### DynamoDB Streams
+
+```mermaid
+graph LR
+    WRITE["Write to DynamoDB<br/>(Put/Update/Delete)"]
+    WRITE --> STREAM["DynamoDB Stream<br/>(Ordered per item,<br/>24h retention)"]
+    STREAM --> LAMBDA_S["Lambda:<br/>Real-time processing"]
+    STREAM --> KINESIS["Kinesis Data Streams:<br/>Multiple consumers"]
+
+    LAMBDA_S --> ES_S["OpenSearch<br/>(Search index)"]
+    LAMBDA_S --> CACHE["ElastiCache<br/>(Cache invalidation)"]
+    LAMBDA_S --> EB_S["EventBridge<br/>(Event routing)"]
+```
+
+| Feature | DynamoDB Streams | Kinesis Data Streams for DynamoDB |
+|---------|-----------------|----------------------------------|
+| **Retention** | 24 hours | 1-365 days |
+| **Consumers** | 2 per shard | Multiple (enhanced fan-out) |
+| **Ordering** | Per item | Per item (partition key) |
+| **Use Case** | Simple triggers (Lambda) | Complex processing, multiple consumers |
+
+### DynamoDB Best Practices
+
+#### Key Design
+
+1. **High cardinality partition keys** — user_id (millions), not status (3 values)
+2. **Use composite sort keys** — `ORDER#2024-01-15#o1` enables range queries and sorting
+3. **Use key prefixes** — `USER#`, `ORDER#`, `PRODUCT#` to distinguish entity types
+4. **Avoid scan operations** — every access pattern should map to a query
+5. **Design for the most frequent access pattern first** — optimize the hot path
+
+#### GSI Design
+
+1. **Overload GSIs** — use one GSI for multiple access patterns
+2. **Project only needed attributes** — reduce GSI storage and cost (KEYS_ONLY or INCLUDE)
+3. **Use sparse indexes** — only items with the indexed attribute appear in the GSI
+4. **GSI eventual consistency** — data appears in GSIs within milliseconds, but not instantly
+5. **Max 20 GSIs per table** — if you need more, reconsider your data model
+
+#### Cost Optimization
+
+1. **Use On-Demand for new/spiky workloads**, Provisioned with auto-scaling for steady state
+2. **Reduce item sizes** — use short attribute names (pk, sk, not partitionKey, sortKey) in high-volume tables
+3. **Use projections in GSIs** — don't project attributes you don't query
+4. **Enable TTL** to auto-delete expired items (free, no WCU cost)
+5. **Use DAX** for read-heavy workloads (reduces RCU by 10x)
+6. **Batch operations** — BatchWriteItem (25 items) and BatchGetItem (100 items) are more efficient
+
+## Common Interview Questions
+
+### Q1: What is single-table design and why is it recommended for DynamoDB?
+
+**A:** Single-table design stores all entity types (users, orders, products) in one DynamoDB table using generic key names (PK, SK) with type prefixes (USER#, ORDER#). It's recommended because: (1) **One query can return related entities** — get a user's profile, addresses, and recent orders in a single query since they share the same partition key. (2) **Transactions work within a table** — TransactWriteItems can atomically update a user and create an order. (3) **Fewer tables to manage** — one set of capacity settings, one backup policy. (4) **DynamoDB was designed for this** — it's a key-value store, not a relational database. The trade-off is complexity in data modeling.
+
+### Q2: Walk me through how you would model an e-commerce application in DynamoDB.
+
+**A:** Start by listing access patterns: (1) Get user profile, (2) Get user's orders, (3) Get order with items, (4) Get product, (5) Get orders by status. Key design: PK = entity type + ID (e.g., `USER#u1`), SK = entity subtype (e.g., `PROFILE`, `ORDER#<date>#<id>`, `ADDRESS#<type>`). A user's profile, addresses, and orders all share PK=`USER#u1` — one query returns all of them. Order items use PK=`ORDER#o1`, SK=`ITEM#<id>`. GSI-1 inverts PK/SK for order-level lookups. GSI-2 on `status` + `created` for status queries (sparse index — only orders have status).
+
+### Q3: How do you handle hot partitions in DynamoDB?
+
+**A:** Hot partitions occur when one partition key gets disproportionate traffic. Solutions: (1) **Better partition key design** — use high-cardinality keys (user_id vs status). (2) **Write sharding** — append a random suffix (0-N) to distribute writes across multiple partitions. Reads scatter-gather across all shards. (3) **Adaptive capacity** — DynamoDB automatically redistributes throughput to hot partitions (but there are limits). (4) **DAX caching** — cache reads to reduce load on hot partitions. (5) **On-demand capacity** — handles spikes without pre-provisioning. The root cause is usually a poor partition key choice — fix the data model first.
+
+### Q4: Explain the difference between Query and Scan in DynamoDB.
+
+**A:** **Query** is efficient — it uses the partition key (required) and optionally the sort key to fetch specific items. It only reads items matching the key condition, so it's fast and cheap. **Scan** reads the entire table and optionally filters results — extremely expensive for large tables because you pay for every item scanned, even filtered ones. Rule: every access pattern in production should use Query, never Scan. If you need a Scan-like operation, create a GSI that turns it into a Query. The only acceptable use of Scan is for one-time data export or migration.
+
+### Q5: How do DynamoDB transactions work?
+
+**A:** DynamoDB supports ACID transactions across multiple items (up to 100) in one or more tables. **TransactWriteItems** atomically writes/updates/deletes up to 100 items — all succeed or all fail. **TransactGetItems** reads up to 100 items with read-after-write consistency. Cost: 2x the normal RCU/WCU. Use cases: transfer money between accounts (debit one, credit another), place an order (create order, decrement inventory), ensure uniqueness (insert if not exists). Use `ClientRequestToken` for idempotent retries. Limitations: 100 items, 4 MB total, same region, no cross-table GSI updates.
+
+### Q6: What are DynamoDB Streams and how do you use them?
+
+**A:** DynamoDB Streams capture a time-ordered sequence of item-level changes (INSERT, MODIFY, REMOVE) with 24-hour retention. Each change record includes the old and/or new item image. Use cases: (1) **Trigger Lambda** to sync data to OpenSearch (build a search index). (2) **Cache invalidation** — update ElastiCache when items change. (3) **Cross-service events** — publish changes to EventBridge for downstream processing. (4) **Aggregation** — Lambda computes real-time statistics from changes. (5) **Global Tables** — built on streams for multi-region replication. For multiple consumers or longer retention, use **Kinesis Data Streams for DynamoDB** instead of native streams.
+
+### Q7: How do you design a DynamoDB table for time-series data?
+
+**A:** Time-series data (IoT readings, logs, metrics) is challenging because: (1) Data is write-heavy and append-only. (2) Queries are usually by time range for a specific entity. Design: PK = `DEVICE#<id>`, SK = timestamp (ISO 8601). This allows efficient range queries: "get all readings for device X between 9 AM and 10 AM." For hot devices, use **write sharding** (add random suffix to PK). For old data, use **TTL** to auto-expire records or **DynamoDB export** to S3 for archival. Alternative: use separate tables per time period (table per month) for easy bulk deletion.
+
+### Q8: When would you use DAX vs ElastiCache for caching DynamoDB?
+
+**A:** **DAX (DynamoDB Accelerator)** is a purpose-built, DynamoDB-aware cache. It sits in front of DynamoDB and caches both item-level (GetItem) and query-level results. No code changes — use the DAX client instead of the DynamoDB client. Microsecond read latency. **ElastiCache Redis** is a general-purpose cache — you control cache logic, eviction, and data structures. Use DAX when: caching DynamoDB reads is the primary goal and you want zero code changes. Use ElastiCache when: you need caching for multiple data sources (DynamoDB + RDS + APIs), complex data structures (leaderboards, sessions), or custom cache logic.
+
+### Q9: How do you estimate DynamoDB capacity and cost?
+
+**A:** (1) **Estimate item size**: sum all attribute sizes (name length + value size). Average item = 1-4 KB typically. (2) **Estimate throughput**: reads per second (RPS) × item size / 4 KB = RCU (strongly consistent) or RCU/2 (eventually consistent). Writes per second × item size / 1 KB = WCU. (3) **Account for GSIs** — each GSI needs its own RCU/WCU proportional to its traffic. (4) **Add 20-30% headroom** for spikes. (5) Compare On-Demand vs Provisioned: On-Demand is ~$1.25/million writes, $0.25/million reads. Provisioned is ~$0.00065/WCU-hour. At >20% utilization, Provisioned is cheaper. Use the **DynamoDB pricing calculator** for detailed estimates.
+
+### Q10: Explain the adjacency list pattern in DynamoDB.
+
+**A:** The adjacency list pattern models many-to-many relationships using the same table. Each entity and its relationships share the same partition key. Example — social network: PK = `USER#alice`, SK = `PROFILE` (Alice's profile), `FRIEND#bob` (Alice follows Bob), `FRIEND#charlie` (Alice follows Charlie). To find Alice's friends: `Query PK = USER#alice, SK begins_with FRIEND#`. To find who follows Bob: create a GSI that inverts PK/SK, then `Query GSI-PK = FRIEND#bob`. This models graph-like relationships without a graph database, using DynamoDB's Query efficiency.
+
+### Q11: How do you handle large items (>400 KB) in DynamoDB?
+
+**A:** DynamoDB's max item size is 400 KB. Strategies for large data: (1) **Compress attributes** — GZIP binary data before storing. (2) **Store large blobs in S3** — save the S3 URL/key in DynamoDB (claim-check pattern). (3) **Split items** — break a large item into multiple items with the same PK and different SK segments (`PART#1`, `PART#2`). (4) **Reduce attribute name length** — use short names (`n` instead of `name`) for high-volume tables. (5) **Separate read-heavy and write-heavy attributes** — store hot attributes in the main item and cold attributes in a separate item with a different SK. Most applications should use the S3 pointer pattern for data > 100 KB.
+
+### Q12: How would you migrate from a relational database to DynamoDB?
+
+**A:** (1) **Analyze access patterns** — list every SQL query your application makes. This is the most critical step because DynamoDB requires you to know queries in advance. (2) **Denormalize** — flatten JOINs into single items. An order + customer + items becomes one or two items, not three tables. (3) **Design the DynamoDB key schema** based on access patterns, not entities. (4) **Create GSIs** for secondary access patterns. (5) **Use DMS** to migrate data from RDS to DynamoDB. (6) **Test every access pattern** — DynamoDB doesn't support ad-hoc queries, so missing patterns require table redesign. Warning: if your workload is JOIN-heavy, highly relational, or requires complex aggregations, DynamoDB may not be the right choice — Aurora might be better.
+
+## Cheat Sheet
+
+| Concept | Key Facts |
+|---------|-----------|
+| Single-Table Design | All entities in one table, overloaded PK/SK with type prefixes |
+| Access Patterns | Define ALL queries BEFORE designing the table |
+| Partition Key | High cardinality, even distribution. Max 10 GB, 3K RCU + 1K WCU per partition |
+| Sort Key | Enables range queries, hierarchical data (begins_with) |
+| GSI | Max 20 per table, eventually consistent, separate throughput |
+| Sparse Index | GSI only includes items with the indexed attribute |
+| Overloaded GSI | One GSI serves multiple access patterns |
+| Write Sharding | Append random suffix to PK for hot partitions |
+| Adjacency List | Model many-to-many with same PK, different SK |
+| Transactions | Up to 100 items, 4 MB, 2x RCU/WCU cost |
+| Streams | 24h retention, ordered per item, trigger Lambda |
+| DAX | DynamoDB cache, microsecond reads, zero code changes |
+| TTL | Auto-delete expired items, no WCU cost |
+| Max Item Size | 400 KB — use S3 for larger data |
+| On-Demand | No capacity planning, ~5-7x Provisioned cost at steady state |
+| Provisioned | Auto-scaling, cheapest at predictable scale (> 20% utilization) |
+
+---
+
+[← Previous: Resilience & DR](../19-resilience-and-dr/) | [Back to Home →](../)
